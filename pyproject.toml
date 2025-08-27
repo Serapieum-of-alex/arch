@@ -1,10 +1,10 @@
 [tool.poetry]
 name = "arch"
 version = "0.1.0"
-description = "LLM utilities for the Llama project"
+description = "python project architecture"
 authors = ["Mostafa Farrag <moah.farag@gmail.com>"]
 readme = "README.md"
-keywords = ["llm", "generativeai", "chatbot", "rag", "natural language processing"]
+keywords = ["python", "architecture"]
 
 packages = [
     { include = "arch", from = "src"}
