@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import json
 import os
-
+from pathlib import Path
 from typing import Dict, List, Optional, Iterable
 from arch.data_models import PackageModel, ModuleInfo, ClassInfo, FunctionInfo
 
@@ -94,13 +94,13 @@ def _iter_python_files(root: str) -> Iterable[str]:
         
         ```
     """
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dir_path, dir_names, file_names in os.walk(root):
         # prune ignored directories in-place
-        dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS]
-        for filename in filenames:
+        dir_names[:] = [d for d in dir_names if d not in IGNORED_DIRS]
+        for filename in file_names:
             if not filename.endswith(".py"):
                 continue
-            yield os.path.join(dirpath, filename)
+            yield os.path.join(dir_path, filename)
 
 
 def _module_name_from_path(root: str, file_path: str) -> str:
@@ -142,8 +142,8 @@ def _module_name_from_path(root: str, file_path: str) -> str:
         
         ```
     """
-    rel = os.path.relpath(file_path, root)
-    no_ext = os.path.splitext(rel)[0]
+    rel = Path(os.path.relpath(file_path, root))
+    no_ext = rel.stem
     parts = []
     for part in no_ext.split(os.sep):
         if part == "__init__":
@@ -399,7 +399,7 @@ def crawl_package(root_path: str) -> Dict:
         PackageModel: In-memory format used before conversion to dict.
         build_edges: Generates the relationships included in the output.
     """
-    abs_root = os.path.abspath(root_path)
+    abs_root = Path(root_path).absolute()
     modules: Dict[str, ModuleInfo] = {}
 
     for file_path in _iter_python_files(abs_root):
@@ -526,52 +526,3 @@ def to_json(model_dict: Dict, indent: int = 2) -> str:
     """
     return json.dumps(model_dict, indent=indent)
 
-
-def main(argv: Optional[List[str]] = None) -> int:
-    """Command-line entry point.
-
-    Parses arguments, crawls the given path, and prints either a tree or JSON.
-
-    Args:
-        argv (Optional[List[str]]): Argument vector, e.g. ``["path", "--format", "json"]``. If ``None``, sys.argv is used.
-
-    Returns:
-        int: Process exit code. ``0`` on success.
-
-    Examples:
-    - Invoke main with a temporary directory and JSON output while capturing stdout
-        ```python
-        
-        >>> import io, contextlib, tempfile
-        >>> with tempfile.TemporaryDirectory() as d:
-        ...     buf = io.StringIO()
-        ...     with contextlib.redirect_stdout(buf):
-        ...         rc = main([d, '--format', 'json', '--indent', '0'])
-        ...     rc == 0 and '"modules"' in buf.getvalue()
-        True
-        
-        ```
-
-    See Also:
-        crawl_package: Builds the model printed by this function.
-        render_tree: Renders a human-friendly tree.
-        to_json: Serializes the model to JSON.
-    """
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Crawl a Python package directory and output its structure.")
-    parser.add_argument("path", help="Path to the root directory of the package or repository")
-    parser.add_argument("--format", choices=["tree", "json"], default="tree", help="Output format")
-    parser.add_argument("--indent", type=int, default=2, help="JSON indent")
-    args = parser.parse_args(argv)
-
-    model = crawl_package(args.path)
-    if args.format == "json":
-        print(to_json(model, indent=args.indent))
-    else:
-        print(render_tree(model))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
