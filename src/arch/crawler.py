@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import json
-import os
 from pathlib import Path
 from typing import Dict, List, Optional, Iterable
 from arch.data_models import PackageModel, ModuleInfo, ClassInfo, FunctionInfo
@@ -67,7 +66,8 @@ def _is_package_dir(path: str) -> bool:
         
         ```
     """
-    return os.path.isdir(path) and os.path.isfile(os.path.join(path, "__init__.py"))
+    p = Path(path)
+    return p.is_dir() and (p / "__init__.py").is_file()
 
 
 def _iter_python_files(root: str) -> Iterable[str]:
@@ -94,13 +94,12 @@ def _iter_python_files(root: str) -> Iterable[str]:
         
         ```
     """
-    for dir_path, dir_names, file_names in os.walk(root):
-        # prune ignored directories in-place
-        dir_names[:] = [d for d in dir_names if d not in IGNORED_DIRS]
-        for filename in file_names:
-            if not filename.endswith(".py"):
-                continue
-            yield os.path.join(dir_path, filename)
+    root_path = Path(root).absolute()
+    for p in root_path.rglob("*.py"):
+        # Skip any files that are inside ignored directories
+        if any(part in IGNORED_DIRS for part in p.parts):
+            continue
+        yield str(p.absolute())
 
 
 def _module_name_from_path(root: str, file_path: str) -> str:
@@ -142,15 +141,17 @@ def _module_name_from_path(root: str, file_path: str) -> str:
         
         ```
     """
-    rel = Path(os.path.relpath(file_path, root))
-    no_ext = rel.stem
-    parts = []
-    for part in no_ext.split(os.sep):
-        if part == "__init__":
-            # __init__.py represents the package itself; skip the last part
-            continue
-        parts.append(part)
-    dotted = ".".join(parts).replace("/", ".").replace("\\", ".")
+    root_path = Path(root).resolve()
+    file_p = Path(file_path).resolve()
+    try:
+        rel = file_p.relative_to(root_path)
+    except ValueError:
+        # Fallback to generic relative path computation if not under root
+        rel = Path(str(file_p).replace(str(root_path), "").lstrip("/\\"))
+    # Remove extension and split into parts
+    no_ext = rel.with_suffix("")
+    parts = [part for part in no_ext.parts if part != "__init__"]
+    dotted = ".".join(parts)
     # If file is __init__.py at the root package directory, dotted may be empty.
     # We'll handle roots separately.
     return dotted
@@ -207,13 +208,12 @@ def _discover_roots(root: str) -> List[str]:
     # If the given root is itself a Python package, consider it a root.
     roots: List[str] = []
     if _is_package_dir(root):
-        roots.append(os.path.basename(os.path.normpath(root)))
+        roots.append(Path(root).name)
     # Also include any immediate sub-directories that are packages
     try:
-        for name in os.listdir(root):
-            full = os.path.join(root, name)
-            if _is_package_dir(full):
-                roots.append(name)
+        for p in Path(root).iterdir():
+            if p.is_dir() and _is_package_dir(str(p)):
+                roots.append(p.name)
     except FileNotFoundError:
         pass
     # De-duplicate while preserving order
@@ -345,7 +345,7 @@ def _parse_module(file_path: str, dotted_name: str) -> Optional[ModuleInfo]:
             if module:
                 imports.append(module)
 
-    return ModuleInfo(name=dotted_name, path=os.path.abspath(file_path), classes=classes, functions=functions, imports=sorted(set(imports)))
+    return ModuleInfo(name=dotted_name, path=str(Path(file_path).absolute()), classes=classes, functions=functions, imports=sorted(set(imports)))
 
 
 def crawl_package(root_path: str) -> Dict:
@@ -406,14 +406,14 @@ def crawl_package(root_path: str) -> Dict:
         dotted = _module_name_from_path(abs_root, file_path)
         # If dotted is empty (root __init__.py), use the directory name as module name
         if not dotted:
-            base = os.path.basename(os.path.dirname(file_path))
+            base = Path(file_path).parent.name
             dotted = base
         mod = _parse_module(file_path, dotted)
         if mod is None:
             continue
         modules[mod.name] = mod
 
-    model = PackageModel(root_path=abs_root, roots=_discover_roots(abs_root), modules=modules)
+    model = PackageModel(root_path=str(abs_root), roots=_discover_roots(abs_root), modules=modules)
     return model.to_dict()
 
 
