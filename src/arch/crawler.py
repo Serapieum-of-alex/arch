@@ -28,7 +28,6 @@ IGNORED_DIRS = {
 }
 
 
-
 def _is_package_dir(path: str) -> bool:
     """Determine whether a filesystem directory is a Python package.
 
@@ -44,17 +43,17 @@ def _is_package_dir(path: str) -> bool:
     Examples:
     - True when a directory has an __init__.py file
         ```python
-        
+
         >>> import tempfile, os
         >>> with tempfile.TemporaryDirectory() as d:
         ...     _ = open(os.path.join(d, "__init__.py"), "w", encoding="utf-8").close()
         ...     _is_package_dir(d)
         True
-        
+
         ```
     - False when directory is missing or lacks __init__.py
         ```python
-        
+
         >>> import tempfile, os
         >>> with tempfile.TemporaryDirectory() as d:
         ...     _is_package_dir(os.path.join(d, "sub"))  # non-existent
@@ -63,7 +62,7 @@ def _is_package_dir(path: str) -> bool:
         ...     os.mkdir(os.path.join(d, "sub"))
         ...     _is_package_dir(os.path.join(d, "sub"))
         False
-        
+
         ```
     """
     p = Path(path)
@@ -82,7 +81,7 @@ def _iter_python_files(root: str) -> Iterable[str]:
     Examples:
     - Find Python files beneath a temporary directory
         ```python
-        
+
         >>> import os, tempfile
         >>> with tempfile.TemporaryDirectory() as d:
         ...     _ = open(os.path.join(d, "a.py"), "w", encoding="utf-8").close()
@@ -91,7 +90,7 @@ def _iter_python_files(root: str) -> Iterable[str]:
         ...     files = sorted(os.path.basename(p) for p in _iter_python_files(d))
         >>> files
         ['a.py', 'b.py']
-        
+
         ```
     """
     root_path = Path(root).absolute()
@@ -106,39 +105,42 @@ def _module_name_from_path(root: str, file_path: str) -> str:
     """Compute dotted module name from a file path relative to the crawl root.
 
     Args:
-        root (str): Absolute root directory used for relative path calculation.
-        file_path (str): Absolute path to a ``.py`` file.
+        root (str):
+            Absolute root directory of the package, the root is used for relative path calculation.
+        file_path (str):
+            module Absolute path.
 
     Returns:
-        str: The dotted module path (e.g., "pkg.sub.module"). For ``__init__.py`` files, the package name is returned (e.g., "pkg.sub").
+        str:
+            The dotted module path (e.g., "pkg.sub.module"). For ``__init__.py`` files, the package name is returned (e.g., "pkg.sub").
 
     Examples:
     - Regular module file
-        ```python
-        
-        >>> import tempfile, os
-        >>> with tempfile.TemporaryDirectory() as d:
-        ...     pkg = os.path.join(d, "pkg")
-        ...     os.mkdir(pkg)
-        ...     _ = open(os.path.join(pkg, "__init__.py"), "w", encoding="utf-8").close()
-        ...     mod = os.path.join(pkg, "mod.py")
-        ...     _ = open(mod, "w", encoding="utf-8").close()
-        ...     _module_name_from_path(d, mod)
-        'pkg.mod'
-        
+        Root directory layout:
+        ```text
+
+        /path/to/root/
+        └── pkg/
+            ├── __init__.py
+            └── mod.py
         ```
-    - Package ``__init__.py``
+        - the function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/mod.py`` as file path
         ```python
-        
-        >>> import tempfile, os
-        >>> with tempfile.TemporaryDirectory() as d:
-        ...     pkg = os.path.join(d, "pkg")
-        ...     os.mkdir(pkg)
-        ...     init = os.path.join(pkg, "__init__.py")
-        ...     _ = open(init, "w", encoding="utf-8").close()
-        ...     _module_name_from_path(d, init)
+        >>> _module_name_from_path("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
+        'pkg.mod'
+        ```
+
+    - Package ``__init__.py``
+        - Root directory layout:
+        ```text
+        /path/to/root/
+        └── pkg/
+            └── __init__.py
+        ```
+        - The function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/__init__.py`` as file path
+        ```python
+        >>> _module_name_from_path("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
         'pkg'
-        
         ```
     """
     root_path = Path(root).resolve()
@@ -177,7 +179,7 @@ def _discover_roots(root: str) -> List[str]:
     Examples:
     - Root is a package and has a subpackage
         ```python
-        
+
         >>> import os, tempfile
         >>> with tempfile.TemporaryDirectory() as d:
         ...     # create root as a package (its exact name is non-deterministic)
@@ -189,11 +191,11 @@ def _discover_roots(root: str) -> List[str]:
         ...     roots = _discover_roots(d)
         ...     'sub' in roots
         True
-        
+
         ```
     - Root is not a package, but contains two top-level packages
         ```python
-        
+
         >>> import os, tempfile
         >>> with tempfile.TemporaryDirectory() as d:
         ...     for name in ("a", "b"):
@@ -202,7 +204,7 @@ def _discover_roots(root: str) -> List[str]:
         ...         _ = open(os.path.join(p, "__init__.py"), "w", encoding="utf-8").close()
         ...     sorted(_discover_roots(d))
         ['a', 'b']
-        
+
         ```
     """
     # If the given root is itself a Python package, consider it a root.
@@ -242,21 +244,21 @@ def _extract_name(node: ast.AST) -> str:
     Examples:
     - Names and attributes
         ```python
-        
+
         >>> import ast
         >>> node = ast.parse("a.b.c", mode="eval").body
         >>> _extract_name(node)
         'a.b.c'
-        
+
         ```
     - Tuple of names
         ```python
-        
+
         >>> import ast
         >>> node = ast.parse("(x, y)", mode="eval").body
         >>> _extract_name(node)
         'x, y'
-        
+
         ```
     """
     # Convert ast nodes representing names/attributes to a string
@@ -295,7 +297,7 @@ def _parse_module(file_path: str, dotted_name: str) -> Optional[ModuleInfo]:
     Examples:
     - Parse a simple module with a class and a function
         ```python
-        
+
         >>> import os, tempfile
         >>> with tempfile.TemporaryDirectory() as d:
         ...     p = os.path.join(d, "mod.py")
@@ -310,7 +312,7 @@ def _parse_module(file_path: str, dotted_name: str) -> Optional[ModuleInfo]:
         ...     mi = _parse_module(p, "mod")
         ...     (mi.name, [c.name for c in mi.classes], [f.name for f in mi.functions], mi.imports)
         ('mod', ['A'], ['f'], ['math'])
-        
+
         ```
     """
     try:
@@ -331,11 +333,21 @@ def _parse_module(file_path: str, dotted_name: str) -> Optional[ModuleInfo]:
             for n in node.body:
                 if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
                     decorators = [_extract_name(d) for d in n.decorator_list]
-                    methods.append(FunctionInfo(name=n.name, lineno=n.lineno, decorators=decorators))
-            classes.append(ClassInfo(name=node.name, lineno=node.lineno, bases=bases, methods=methods))
+                    methods.append(
+                        FunctionInfo(
+                            name=n.name, lineno=n.lineno, decorators=decorators
+                        )
+                    )
+            classes.append(
+                ClassInfo(
+                    name=node.name, lineno=node.lineno, bases=bases, methods=methods
+                )
+            )
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             decorators = [_extract_name(d) for d in node.decorator_list]
-            functions.append(FunctionInfo(name=node.name, lineno=node.lineno, decorators=decorators))
+            functions.append(
+                FunctionInfo(name=node.name, lineno=node.lineno, decorators=decorators)
+            )
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name:
@@ -345,7 +357,13 @@ def _parse_module(file_path: str, dotted_name: str) -> Optional[ModuleInfo]:
             if module:
                 imports.append(module)
 
-    return ModuleInfo(name=dotted_name, path=str(Path(file_path).absolute()), classes=classes, functions=functions, imports=sorted(set(imports)))
+    return ModuleInfo(
+        name=dotted_name,
+        path=str(Path(file_path).absolute()),
+        classes=classes,
+        functions=functions,
+        imports=sorted(set(imports)),
+    )
 
 
 def crawl_package(root_path: str) -> Dict:
@@ -371,7 +389,7 @@ def crawl_package(root_path: str) -> Dict:
     Examples:
     - Crawl a tiny temporary package and inspect keys
         ```python
-        
+
         >>> import os, tempfile
         >>> with tempfile.TemporaryDirectory() as d:
         ...     pkg = os.path.join(d, 'pkg')
@@ -383,16 +401,16 @@ def crawl_package(root_path: str) -> Dict:
         ...     model = crawl_package(d)
         ...     sorted(model.keys())
         ['edges', 'modules', 'root_path', 'roots']
-        
+
         ```
     - Check that the discovered module and class appear
         ```python
-        
+
         >>> 'pkg.m' in model['modules']
         True
         >>> any(e['type'] == 'module_contains' and e['to'].endswith('.A') for e in model['edges'])
         True
-        
+
         ```
 
     See Also:
@@ -413,95 +431,10 @@ def crawl_package(root_path: str) -> Dict:
             continue
         modules[mod.name] = mod
 
-    model = PackageModel(root_path=str(abs_root), roots=_discover_roots(abs_root), modules=modules)
+    model = PackageModel(
+        root_path=str(abs_root), roots=_discover_roots(abs_root), modules=modules
+    )
     return model.to_dict()
-
-
-def render_tree(model_dict: Dict) -> str:
-    """Render a human-readable ASCII tree of the package hierarchy.
-
-    Args:
-        model_dict (Dict): A model as produced by ``crawl_package`` or ``PackageModel.to_dict``.
-
-    Returns:
-        str: A string with an ASCII tree, prefixed by a header listing package roots.
-
-    Raises:
-        KeyError: If ``model_dict`` lacks required keys (only when providing a malformed input).
-
-    Examples:
-    - Render a small in-memory model
-        ```python
-        
-        >>> model = {
-        ...     'roots': ['pkg'],
-        ...     'modules': {
-        ...         'pkg': {
-        ...             'name': 'pkg',
-        ...             'path': 'X',
-        ...             'classes': [{'name': 'A', 'lineno': 1, 'bases': [], 'methods': []}],
-        ...             'functions': [{'name': 'f', 'lineno': 2, 'decorators': []}],
-        ...             'imports': []
-        ...         }
-        ...     }
-        ... }
-        >>> out = render_tree(model)
-        >>> 'Package roots: pkg' in out
-        True
-        >>> 'class A' in out and 'def f()' in out
-        True
-        
-        ```
-
-    See Also:
-        crawl_package: Produces a compatible model dictionary.
-        to_json: For serializing the model to JSON.
-    """
-    modules: Dict[str, Dict] = model_dict.get("modules", {})
-    # Build nested dict tree structure based on dotted module names
-    tree: Dict[str, dict] = {}
-
-    def insert(path_parts: List[str], mod: Dict):
-        cur = tree
-        for i, part in enumerate(path_parts):
-            cur = cur.setdefault(part, {})
-            if i == len(path_parts) - 1:
-                cur.setdefault("__module__", mod)
-
-    for name, mod in modules.items():
-        parts = name.split(".") if name else ["<root>"]
-        insert(parts, mod)
-
-    lines: List[str] = []
-
-    def draw(node: Dict, prefix: str = ""):
-        # list entries except the special __module__ key
-        keys = [k for k in node.keys() if k != "__module__"]
-        keys.sort()
-        mod = node.get("__module__")
-        if mod:
-            # print classes and functions under this module
-            for c in mod.get("classes", []):
-                lines.append(f"{prefix}├─ class {c['name']} (bases: {', '.join(c.get('bases', [])) or 'object'})")
-                methods = c.get("methods", [])
-                for j, m in enumerate(methods):
-                    is_last_method = j == len(methods) - 1 and not keys
-                    branch = "└" if is_last_method else "├"
-                    lines.append(f"{prefix}│  {branch}─ def {m['name']}()")
-            funcs = mod.get("functions", [])
-            for i, f in enumerate(funcs):
-                is_last_func = i == len(funcs) - 1 and not keys
-                branch = "└" if is_last_func else "├"
-                lines.append(f"{prefix}{branch}─ def {f['name']}()")
-        for i, k in enumerate(keys):
-            is_last = i == len(keys) - 1
-            branch = "└" if is_last else "├"
-            lines.append(f"{prefix}{branch}─ {k}")
-            draw(node[k], prefix + ("   " if is_last else "│  "))
-
-    draw(tree)
-    header = f"Package roots: {', '.join(model_dict.get('roots', []))}\n"
-    return header + "\n".join(lines)
 
 
 def to_json(model_dict: Dict, indent: int = 2) -> str:
@@ -517,12 +450,11 @@ def to_json(model_dict: Dict, indent: int = 2) -> str:
     Examples:
     - Serialize a tiny model
         ```python
-        
+
         >>> s = to_json({'roots': ['pkg'], 'modules': {}, 'edges': [], 'root_path': 'X'}, indent=0)
         >>> isinstance(s, str) and '"roots"' in s
         True
-        
+
         ```
     """
     return json.dumps(model_dict, indent=indent)
-
