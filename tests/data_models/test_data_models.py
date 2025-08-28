@@ -94,6 +94,6 @@ class TestModuleInfoInit:
         Expected: The provided absolute path is preserved in the dataclass `path` attribute.
         Checks: Path assignment correctness; not validating existence logic in data model, only storage.
         """
-        file_path = Path(__file__).parent / "data" / "test-package-1" / "core.py"
+        file_path = "tests/data/test-package-1/core.py"
         mod = ModuleInfo(name="pkg.core", path=str(file_path))
-        assert mod.path.endswith(os.path.join("tests", "data", "test-package-1", "core.py"))
+        assert mod.path == "tests/data/test-package-1/core.py"
