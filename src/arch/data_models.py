@@ -1,5 +1,7 @@
 from typing import List, Dict
+from pathlib import Path
 from dataclasses import dataclass, field
+
 
 @dataclass
 class FunctionInfo:
@@ -83,7 +85,67 @@ class ModuleInfo:
     path: str  # absolute filesystem path
     classes: List[ClassInfo] = field(default_factory=list)
     functions: List[FunctionInfo] = field(default_factory=list)
-    imports: List[str] = field(default_factory=list)  # imported module names (best-effort)
+    imports: List[str] = field(
+        default_factory=list
+    )  # imported module names (best-effort)
+
+    @staticmethod
+    def _module_name_from_path(root: str, file_path: str) -> str:
+        """Compute dotted module name from a file path relative to the crawl root.
+
+        Args:
+            root (str):
+                Absolute root directory of the package, the root is used for relative path calculation.
+            file_path (str):
+                module Absolute path.
+
+        Returns:
+            str:
+                The dotted module path (e.g., "pkg.sub.module"). For ``__init__.py`` files, the package name is returned (e.g., "pkg.sub").
+
+        Examples:
+        - Regular module file
+            Root directory layout:
+            ```text
+
+            /path/to/root/
+            └── pkg/
+                ├── __init__.py
+                └── mod.py
+            ```
+            - the function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/mod.py`` as file path
+            ```python
+            >>> ModuleInfo._module_name_from_path("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
+            'pkg.mod'
+            ```
+
+        - Package ``__init__.py``
+            - Root directory layout:
+            ```text
+            /path/to/root/
+            └── pkg/
+                └── __init__.py
+            ```
+            - The function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/__init__.py`` as file path
+            ```python
+            >>> ModuleInfo._module_name_from_path("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
+            'pkg'
+            ```
+        """
+        root_path = Path(root).resolve()
+        file_p = Path(file_path).resolve()
+        try:
+            rel = file_p.relative_to(root_path)
+        except ValueError:
+            # Fallback to generic relative path computation if not under root
+            rel = Path(str(file_p).replace(str(root_path), "").lstrip("/\\"))
+        # Remove extension and split into parts
+        no_ext = rel.with_suffix("")
+        parts = [part for part in no_ext.parts if part != "__init__"]
+        dotted = ".".join(parts)
+        # If file is __init__.py at the root package directory, dotted may be empty.
+        # We'll handle roots separately.
+        return dotted
 
 
 @dataclass
@@ -132,7 +194,7 @@ class PackageModel:
         Examples:
         - Minimal conversion
             ```python
-
+            >>> from arch.crawler import PackageModel
             >>> model = PackageModel(root_path="C:/tmp", roots=[], modules={})
             >>> data = model.to_dict()
             >>> sorted(data.keys())
@@ -220,15 +282,35 @@ class PackageModel:
         # module -> class/function containment
         for mname, mod in self.modules.items():
             for c in mod.classes:
-                edges.append({"type": "module_contains", "from": mname, "to": f"{mname}.{c.name}"})
+                edges.append(
+                    {
+                        "type": "module_contains",
+                        "from": mname,
+                        "to": f"{mname}.{c.name}",
+                    }
+                )
                 # class -> method containment
                 for meth in c.methods:
-                    edges.append({"type": "class_contains", "from": f"{mname}.{c.name}", "to": f"{mname}.{c.name}.{meth.name}"})
+                    edges.append(
+                        {
+                            "type": "class_contains",
+                            "from": f"{mname}.{c.name}",
+                            "to": f"{mname}.{c.name}.{meth.name}",
+                        }
+                    )
                 # inheritance edges
                 for base in c.bases:
-                    edges.append({"type": "inherits", "from": f"{mname}.{c.name}", "to": base})
+                    edges.append(
+                        {"type": "inherits", "from": f"{mname}.{c.name}", "to": base}
+                    )
             for f in mod.functions:
-                edges.append({"type": "module_contains", "from": mname, "to": f"{mname}.{f.name}"})
+                edges.append(
+                    {
+                        "type": "module_contains",
+                        "from": mname,
+                        "to": f"{mname}.{f.name}",
+                    }
+                )
             # imports edges
             for imp in mod.imports:
                 edges.append({"type": "imports", "from": mname, "to": imp})

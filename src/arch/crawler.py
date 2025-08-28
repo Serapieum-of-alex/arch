@@ -101,64 +101,6 @@ def _iter_python_files(root: str) -> Iterable[str]:
         yield str(p.absolute())
 
 
-def _module_name_from_path(root: str, file_path: str) -> str:
-    """Compute dotted module name from a file path relative to the crawl root.
-
-    Args:
-        root (str):
-            Absolute root directory of the package, the root is used for relative path calculation.
-        file_path (str):
-            module Absolute path.
-
-    Returns:
-        str:
-            The dotted module path (e.g., "pkg.sub.module"). For ``__init__.py`` files, the package name is returned (e.g., "pkg.sub").
-
-    Examples:
-    - Regular module file
-        Root directory layout:
-        ```text
-
-        /path/to/root/
-        └── pkg/
-            ├── __init__.py
-            └── mod.py
-        ```
-        - the function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/mod.py`` as file path
-        ```python
-        >>> _module_name_from_path("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
-        'pkg.mod'
-        ```
-
-    - Package ``__init__.py``
-        - Root directory layout:
-        ```text
-        /path/to/root/
-        └── pkg/
-            └── __init__.py
-        ```
-        - The function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/__init__.py`` as file path
-        ```python
-        >>> _module_name_from_path("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
-        'pkg'
-        ```
-    """
-    root_path = Path(root).resolve()
-    file_p = Path(file_path).resolve()
-    try:
-        rel = file_p.relative_to(root_path)
-    except ValueError:
-        # Fallback to generic relative path computation if not under root
-        rel = Path(str(file_p).replace(str(root_path), "").lstrip("/\\"))
-    # Remove extension and split into parts
-    no_ext = rel.with_suffix("")
-    parts = [part for part in no_ext.parts if part != "__init__"]
-    dotted = ".".join(parts)
-    # If file is __init__.py at the root package directory, dotted may be empty.
-    # We'll handle roots separately.
-    return dotted
-
-
 def _discover_roots(root: str) -> List[str]:
     """Discover top-level Python package directories under a filesystem root.
 
@@ -421,7 +363,7 @@ def crawl_package(root_path: str) -> Dict:
     modules: Dict[str, ModuleInfo] = {}
 
     for file_path in _iter_python_files(abs_root):
-        dotted = _module_name_from_path(abs_root, file_path)
+        dotted = ModuleInfo._module_name_from_path(abs_root, file_path)
         # If dotted is empty (root __init__.py), use the directory name as module name
         if not dotted:
             base = Path(file_path).parent.name

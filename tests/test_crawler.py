@@ -1,12 +1,8 @@
-import os
-import sys
 import tempfile
 from pathlib import Path
 
-# Ensure 'src' layout is importable when running tests from project root
-sys.path.insert(0, os.path.abspath("src"))
 
-from arch.crawler import _module_name_from_path  # noqa: E402
+from arch.data_models import ModuleInfo  # noqa: E402
 
 
 class TestModuleNameFromPath:
@@ -22,7 +18,7 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = _module_name_from_path(str(parent), str(mod))
+            dotted = ModuleInfo._module_name_from_path(str(parent), str(mod))
             assert dotted == "pkg.mod"
 
     def test_package_init_from_parent_root(self):
@@ -36,7 +32,7 @@ class TestModuleNameFromPath:
             init = pkg / "__init__.py"
             init.write_text("", encoding="utf-8")
 
-            dotted = _module_name_from_path(str(parent), str(init))
+            dotted = ModuleInfo._module_name_from_path(str(parent), str(init))
             assert dotted == "pkg"
 
     def test_nested_module_from_parent_root(self):
@@ -53,7 +49,7 @@ class TestModuleNameFromPath:
             mod2 = sub / "mod2.py"
             mod2.write_text("", encoding="utf-8")
 
-            dotted = _module_name_from_path(str(parent), str(mod2))
+            dotted = ModuleInfo._module_name_from_path(str(parent), str(mod2))
             assert dotted == "pkg.sub.mod2"
 
     def test_root_init_when_root_is_package_dir_returns_empty(self):
@@ -66,7 +62,7 @@ class TestModuleNameFromPath:
             init = pkg / "__init__.py"
             init.write_text("", encoding="utf-8")
 
-            dotted = _module_name_from_path(str(pkg), str(init))
+            dotted = ModuleInfo._module_name_from_path(str(pkg), str(init))
             assert dotted == ""
 
     def test_module_when_root_is_package_dir_is_bare_name(self):
@@ -80,7 +76,7 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = _module_name_from_path(str(pkg), str(mod))
+            dotted = ModuleInfo._module_name_from_path(str(pkg), str(mod))
             assert dotted == "mod"
 
     def test_file_not_under_root_fallback_endswith_pkg_mod(self):
@@ -97,5 +93,5 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = _module_name_from_path(str(root), str(mod))
+            dotted = ModuleInfo._module_name_from_path(str(root), str(mod))
             assert dotted.endswith("pkg.mod"), f"unexpected dotted name: {dotted}"
