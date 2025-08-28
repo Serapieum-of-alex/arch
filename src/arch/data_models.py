@@ -187,9 +187,6 @@ class PackageModel:
         - ``inherits``: from class to each base class name string.
         - ``imports``: from module to each imported module name.
 
-        Args:
-            model (PackageModel): The in-memory model representing discovered modules.
-
         Returns:
             List[Dict[str, str]]: A list of edges, each with keys ``type``, ``from``, and ``to``.
 
