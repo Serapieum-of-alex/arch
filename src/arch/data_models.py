@@ -1,6 +1,8 @@
-from typing import List, Dict
+import ast
+from typing import List, Dict, Optional
 from pathlib import Path
 from dataclasses import dataclass, field
+from arch.utils import _extract_name
 
 
 @dataclass
@@ -146,6 +148,95 @@ class ModuleInfo:
         # If file is __init__.py at the root package directory, dotted may be empty.
         # We'll handle roots separately.
         return dotted
+
+    @classmethod
+    def from_file(cls, file_path: str, dotted_name: str) -> Optional["ModuleInfo"]:
+        """Parse a Python source file and extract high-level structural information.
+
+        This function uses Python's ``ast`` module to find classes, top-level functions,
+        and imported module names. It returns a ModuleInfo describing the contents.
+
+        Args:
+            file_path (str): Absolute path to a Python source file to parse.
+            dotted_name (str): Dotted module name that will be associated with the file.
+
+        Returns:
+            Optional[ModuleInfo]: A populated ModuleInfo on success, or ``None`` when the
+            source cannot be parsed due to ``SyntaxError`` or ``UnicodeDecodeError``.
+
+        Raises:
+            None: Parse errors are caught and result in ``None`` being returned.
+
+        Examples:
+        - Parse a simple module with a class and a function
+            ```python
+
+            >>> import os, tempfile
+            >>> with tempfile.TemporaryDirectory() as d:
+            ...     p = os.path.join(d, "mod.py")
+            ...     with open(p, "w", encoding="utf-8") as fh:
+            ...         _ = fh.write("import math\\n")
+            ...         _ = fh.write("\\n")
+            ...         _ = fh.write("class A:\\n")
+            ...         _ = fh.write("    pass\\n")
+            ...         _ = fh.write("\\n")
+            ...         _ = fh.write("def f():\\n")
+            ...         _ = fh.write("    return 42\\n")
+            ...     mi = _parse_module(p, "mod")
+            ...     (mi.name, [c.name for c in mi.classes], [f.name for f in mi.functions], mi.imports)
+            ('mod', ['A'], ['f'], ['math'])
+
+            ```
+        """
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                source = f.read()
+            tree = ast.parse(source, filename=file_path)
+        except (SyntaxError, UnicodeDecodeError):
+            return None
+
+        classes: List[ClassInfo] = []
+        functions: List[FunctionInfo] = []
+        imports: List[str] = []
+
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef):
+                bases = [_extract_name(b) for b in node.bases]
+                methods: List[FunctionInfo] = []
+                for n in node.body:
+                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        decorators = [_extract_name(d) for d in n.decorator_list]
+                        methods.append(
+                            FunctionInfo(
+                                name=n.name, lineno=n.lineno, decorators=decorators
+                            )
+                        )
+                classes.append(
+                    ClassInfo(
+                        name=node.name, lineno=node.lineno, bases=bases, methods=methods
+                    )
+                )
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                decorators = [_extract_name(d) for d in node.decorator_list]
+                functions.append(
+                    FunctionInfo(name=node.name, lineno=node.lineno, decorators=decorators)
+                )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name:
+                        imports.append(alias.name)
+            elif isinstance(node, ast.ImportFrom):
+                module = node.module or ""
+                if module:
+                    imports.append(module)
+
+        return cls(
+            name=dotted_name,
+            path=str(Path(file_path).absolute()),
+            classes=classes,
+            functions=functions,
+            imports=sorted(set(imports)),
+        )
 
 
 @dataclass

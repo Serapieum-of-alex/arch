@@ -3,8 +3,8 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Iterable
-from arch.data_models import PackageModel, ModuleInfo, ClassInfo, FunctionInfo
+from typing import Dict, List, Iterable
+from arch.data_models import PackageModel, ModuleInfo
 
 # Public API surface of this module:
 # - crawl_package(path: str) -> Dict
@@ -168,145 +168,7 @@ def _discover_roots(root: str) -> List[str]:
             seen.add(r)
             out.append(r)
     return out
-
-
-def _extract_name(node: ast.AST) -> str:
-    """Best-effort string extraction for names from AST nodes.
-
-    The function is used to turn various AST node types (Name, Attribute, Tuple,
-    Call, Subscript, Constant) into a readable string representation that
-    resembles the original source code identifier expression.
-
-    Args:
-        node (ast.AST): An AST node representing an expression.
-
-    Returns:
-        str: A readable string for the node. For unsupported nodes, ``repr(node)`` is used.
-
-    Examples:
-    - Names and attributes
-        ```python
-
-        >>> import ast
-        >>> node = ast.parse("a.b.c", mode="eval").body
-        >>> _extract_name(node)
-        'a.b.c'
-
-        ```
-    - Tuple of names
-        ```python
-
-        >>> import ast
-        >>> node = ast.parse("(x, y)", mode="eval").body
-        >>> _extract_name(node)
-        'x, y'
-
-        ```
-    """
-    # Convert ast nodes representing names/attributes to a string
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return f"{_extract_name(node.value)}.{node.attr}"
-    if isinstance(node, ast.Subscript):
-        return _extract_name(node.value)
-    if isinstance(node, ast.Call):
-        return _extract_name(node.func)
-    if isinstance(node, ast.Constant):
-        return str(node.value)
-    if isinstance(node, ast.Tuple):
-        return ", ".join(_extract_name(elt) for elt in node.elts)
-    return getattr(node, "id", repr(node))
-
-
-def _parse_module(file_path: str, dotted_name: str) -> Optional[ModuleInfo]:
-    """Parse a Python source file and extract high-level structural information.
-
-    This function uses Python's ``ast`` module to find classes, top-level functions,
-    and imported module names. It returns a ModuleInfo describing the contents.
-
-    Args:
-        file_path (str): Absolute path to a Python source file to parse.
-        dotted_name (str): Dotted module name that will be associated with the file.
-
-    Returns:
-        Optional[ModuleInfo]: A populated ModuleInfo on success, or ``None`` when the
-        source cannot be parsed due to ``SyntaxError`` or ``UnicodeDecodeError``.
-
-    Raises:
-        None: Parse errors are caught and result in ``None`` being returned.
-
-    Examples:
-    - Parse a simple module with a class and a function
-        ```python
-
-        >>> import os, tempfile
-        >>> with tempfile.TemporaryDirectory() as d:
-        ...     p = os.path.join(d, "mod.py")
-        ...     with open(p, "w", encoding="utf-8") as fh:
-        ...         _ = fh.write("import math\\n")
-        ...         _ = fh.write("\\n")
-        ...         _ = fh.write("class A:\\n")
-        ...         _ = fh.write("    pass\\n")
-        ...         _ = fh.write("\\n")
-        ...         _ = fh.write("def f():\\n")
-        ...         _ = fh.write("    return 42\\n")
-        ...     mi = _parse_module(p, "mod")
-        ...     (mi.name, [c.name for c in mi.classes], [f.name for f in mi.functions], mi.imports)
-        ('mod', ['A'], ['f'], ['math'])
-
-        ```
-    """
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            source = f.read()
-        tree = ast.parse(source, filename=file_path)
-    except (SyntaxError, UnicodeDecodeError):
-        return None
-
-    classes: List[ClassInfo] = []
-    functions: List[FunctionInfo] = []
-    imports: List[str] = []
-
-    for node in tree.body:
-        if isinstance(node, ast.ClassDef):
-            bases = [_extract_name(b) for b in node.bases]
-            methods: List[FunctionInfo] = []
-            for n in node.body:
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    decorators = [_extract_name(d) for d in n.decorator_list]
-                    methods.append(
-                        FunctionInfo(
-                            name=n.name, lineno=n.lineno, decorators=decorators
-                        )
-                    )
-            classes.append(
-                ClassInfo(
-                    name=node.name, lineno=node.lineno, bases=bases, methods=methods
-                )
-            )
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            decorators = [_extract_name(d) for d in node.decorator_list]
-            functions.append(
-                FunctionInfo(name=node.name, lineno=node.lineno, decorators=decorators)
-            )
-        elif isinstance(node, ast.Import):
-            for alias in node.names:
-                if alias.name:
-                    imports.append(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            module = node.module or ""
-            if module:
-                imports.append(module)
-
-    return ModuleInfo(
-        name=dotted_name,
-        path=str(Path(file_path).absolute()),
-        classes=classes,
-        functions=functions,
-        imports=sorted(set(imports)),
-    )
-
+?
 
 def crawl_package(root_path: str) -> Dict:
     """Crawl a directory for Python packages and build a serializable model.
@@ -368,7 +230,7 @@ def crawl_package(root_path: str) -> Dict:
         if not dotted:
             base = Path(file_path).parent.name
             dotted = base
-        mod = _parse_module(file_path, dotted)
+        mod = ModuleInfo.from_file(file_path, dotted)
         if mod is None:
             continue
         modules[mod.name] = mod
