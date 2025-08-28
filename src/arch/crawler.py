@@ -168,7 +168,7 @@ def _discover_roots(root: str) -> List[str]:
             seen.add(r)
             out.append(r)
     return out
-?
+
 
 def crawl_package(root_path: str) -> Dict:
     """Crawl a directory for Python packages and build a serializable model.
