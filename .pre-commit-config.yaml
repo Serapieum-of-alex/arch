@@ -120,6 +120,7 @@ repos:
         entry: pytest --doctest-modules
         language: system
         pass_filenames: true
+        types: [python]
 
   - repo: local
     hooks:
