@@ -29,6 +29,11 @@ class FunctionInfo:
     lineno: int
     decorators: List[str] = field(default_factory=list)
 
+    @classmethod
+    def from_tree_node(cls, node):
+        decorators = [_extract_name(d) for d in node.decorator_list]
+        return cls(name=node.name, lineno=node.lineno, decorators=decorators)
+
 
 @dataclass
 class ClassInfo:
@@ -55,6 +60,23 @@ class ClassInfo:
     lineno: int
     bases: List[str] = field(default_factory=list)
     methods: List[FunctionInfo] = field(default_factory=list)
+
+    @classmethod
+    def from_tree_node(cls, node):
+        bases = [_extract_name(b) for b in node.bases]
+        methods: List[FunctionInfo] = []
+        for n in node.body:
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                decorators = [_extract_name(d) for d in n.decorator_list]
+                methods.append(
+                    FunctionInfo(
+                        name=n.name, lineno=n.lineno, decorators=decorators
+                    )
+                )
+
+        return cls(
+                name=node.name, lineno=node.lineno, bases=bases, methods=methods
+            )
 
 
 @dataclass
@@ -154,6 +176,16 @@ class ModuleInfo:
         # We'll handle roots separately.
         return dotted
 
+    @staticmethod
+    def get_tree(path):
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                source = f.read()
+            tree = ast.parse(source, filename=path)
+        except (SyntaxError, UnicodeDecodeError):
+            return None
+        return tree
+
     @classmethod
     def from_file(cls, file_path: str, root: str) -> Optional["ModuleInfo"]:
         """Parse a Python source file and extract high-level structural information.
@@ -199,12 +231,7 @@ class ModuleInfo:
             base = Path(file_path).parent.name
             dotted_name = base
 
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                source = f.read()
-            tree = ast.parse(source, filename=file_path)
-        except (SyntaxError, UnicodeDecodeError):
-            return None
+        tree = cls.get_tree(file_path)
 
         classes: List[ClassInfo] = []
         functions: List[FunctionInfo] = []
@@ -212,25 +239,12 @@ class ModuleInfo:
 
         for node in tree.body:
             if isinstance(node, ast.ClassDef):
-                bases = [_extract_name(b) for b in node.bases]
-                methods: List[FunctionInfo] = []
-                for n in node.body:
-                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                        decorators = [_extract_name(d) for d in n.decorator_list]
-                        methods.append(
-                            FunctionInfo(
-                                name=n.name, lineno=n.lineno, decorators=decorators
-                            )
-                        )
                 classes.append(
-                    ClassInfo(
-                        name=node.name, lineno=node.lineno, bases=bases, methods=methods
-                    )
+                    ClassInfo.from_tree_node(node)
                 )
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                decorators = [_extract_name(d) for d in node.decorator_list]
                 functions.append(
-                    FunctionInfo(name=node.name, lineno=node.lineno, decorators=decorators)
+                    FunctionInfo.from_tree_node(node)
                 )
             elif isinstance(node, ast.Import):
                 for alias in node.names:
