@@ -95,3 +95,21 @@ class TestModuleNameFromPath:
 
             dotted = ModuleInfo._module_name_from_path(str(root), str(mod))
             assert dotted.endswith("pkg.mod"), f"unexpected dotted name: {dotted}"
+
+
+    def test_roo_as_none(self):
+        """
+        When file is outside the root, function uses a fallback; ensure it still ends with "pkg.mod"
+        """
+        with tempfile.TemporaryDirectory() as d_other:
+            root = None
+            other = Path(d_other)
+
+            pkg = other / "pkg"
+            pkg.mkdir()
+            (pkg / "__init__.py").write_text("", encoding="utf-8")
+            mod = pkg / "mod.py"
+            mod.write_text("", encoding="utf-8")
+
+            dotted = ModuleInfo._module_name_from_path(root, str(mod))
+            assert dotted.endswith("pkg.mod"), f"unexpected dotted name: {dotted}"

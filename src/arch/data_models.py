@@ -134,13 +134,18 @@ class ModuleInfo:
             'pkg'
             ```
         """
-        root_path = Path(root).resolve()
         file_p = Path(file_path).resolve()
-        try:
-            rel = file_p.relative_to(root_path)
-        except ValueError:
-            # Fallback to generic relative path computation if not under root
-            rel = Path(str(file_p).replace(str(root_path), "").lstrip("/\\"))
+
+        if root is not None:
+            root_path = Path(root).resolve()
+            try:
+                rel = file_p.relative_to(root_path)
+            except ValueError:
+                # Fallback to generic relative path computation if not under root
+                rel = Path(str(file_p).replace(str(root_path), "").lstrip("/\\"))
+        else:
+            rel = Path(str(file_p).lstrip("/\\"))
+
         # Remove extension and split into parts
         no_ext = rel.with_suffix("")
         parts = [part for part in no_ext.parts if part != "__init__"]
