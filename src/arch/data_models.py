@@ -92,7 +92,7 @@ class ModuleInfo:
     )  # imported module names (best-effort)
 
     @staticmethod
-    def _module_name_from_path(root: str, file_path: str) -> str:
+    def convert_path_to_dot(root: str, file_path: str) -> str:
         """Compute dotted module name from a file path relative to the crawl root.
 
         Args:
@@ -117,7 +117,7 @@ class ModuleInfo:
             ```
             - the function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/mod.py`` as file path
             ```python
-            >>> ModuleInfo._module_name_from_path("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
+            >>> ModuleInfo.convert_path_to_dot("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
             'pkg.mod'
             ```
 
@@ -130,7 +130,7 @@ class ModuleInfo:
             ```
             - The function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/__init__.py`` as file path
             ```python
-            >>> ModuleInfo._module_name_from_path("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
+            >>> ModuleInfo.convert_path_to_dot("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
             'pkg'
             ```
         """
@@ -155,7 +155,7 @@ class ModuleInfo:
         return dotted
 
     @classmethod
-    def from_file(cls, file_path: str, dotted_name: str) -> Optional["ModuleInfo"]:
+    def from_file(cls, file_path: str, root: str) -> Optional["ModuleInfo"]:
         """Parse a Python source file and extract high-level structural information.
 
         This function uses Python's ``ast`` module to find classes, top-level functions,
@@ -193,6 +193,12 @@ class ModuleInfo:
 
             ```
         """
+        dotted_name = ModuleInfo.convert_path_to_dot(root, file_path)
+        # If dotted is empty (root __init__.py), use the directory name as module name
+        if not dotted_name:
+            base = Path(file_path).parent.name
+            dotted_name = base
+
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 source = f.read()

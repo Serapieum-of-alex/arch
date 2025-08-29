@@ -225,12 +225,8 @@ def crawl_package(root_path: str) -> Dict:
     modules: Dict[str, ModuleInfo] = {}
 
     for file_path in _iter_python_files(abs_root):
-        dotted = ModuleInfo._module_name_from_path(abs_root, file_path)
-        # If dotted is empty (root __init__.py), use the directory name as module name
-        if not dotted:
-            base = Path(file_path).parent.name
-            dotted = base
-        mod = ModuleInfo.from_file(file_path, dotted)
+
+        mod = ModuleInfo.from_file(file_path, abs_root)
         if mod is None:
             continue
         modules[mod.name] = mod
