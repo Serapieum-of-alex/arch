@@ -347,6 +347,71 @@ class Module:
 
         return edges
 
+    def to_mermaid_class_diagram(
+        self, include_relations: bool = True, class_detail_level: str = "all", function_detail_level: str = "all"
+    ) -> str:
+        """Create a Mermaid class diagram string for this module.
+
+        This renders all classes found in the module (and optionally inheritance
+        relations) and optionally includes top-level functions as stereotyped
+        function nodes.
+
+        Args:
+            include_relations (bool): If True, include inheritance relations among classes.
+            class_detail_level (str): Which class methods to include. One of:
+                - "all": include all methods
+                - "public": only methods that do not start with an underscore
+                - "none": do not include any methods
+            function_detail_level (str): Which top-level functions to include. One of:
+                - "all": include all functions
+                - "public": only functions that do not start with an underscore
+                - "none": do not include any functions
+
+        Returns:
+            str: Mermaid class diagram describing all classes (and optionally functions) in this module.
+        """
+        allowed_levels = {"all", "public", "none"}
+        if class_detail_level not in allowed_levels:
+            raise ValueError(
+                f"Unsupported class_detail_level '{class_detail_level}'. Expected one of {sorted(allowed_levels)}"
+            )
+        if function_detail_level not in allowed_levels:
+            raise ValueError(
+                f"Unsupported function_detail_level '{function_detail_level}'. Expected one of {sorted(allowed_levels)}"
+            )
+
+        lines: List[str] = ["classDiagram"]
+
+        # Render classes
+        for cls in sorted(self.classes, key=lambda c: c.name):
+            # Reuse Class.to_mermaid_class_diagram and drop the header line
+            cls_diagram = cls.to_mermaid_class_diagram(
+                include_relations=False, detail_level=class_detail_level
+            )
+            parts = cls_diagram.splitlines()
+            if parts and parts[0].strip().lower() == "classdiagram":
+                parts = parts[1:]
+            lines.extend(parts)
+
+        # Render inheritance relations once (to avoid duplicates across class blocks)
+        if include_relations:
+            for cls in sorted(self.classes, key=lambda c: c.name):
+                for base in sorted(cls.bases):
+                    lines.append(f"{base} <|-- {cls.name}")
+
+        # Render top-level functions as stereotype nodes
+        if function_detail_level != "none":
+            if function_detail_level == "all":
+                funcs = self.functions
+            else:  # "public"
+                funcs = [f for f in self.functions if not f.name.startswith("_")]
+
+            for f in sorted(funcs, key=lambda ff: ff.name):
+                # Mermaid class with function stereotype and no members
+                lines.append(f"class {f.name} <<function>>")
+
+        return "\n".join(lines)
+
     @classmethod
     def from_file(cls, file_path: str, root: str) -> Optional["Module"]:
         """Parse a Python source file and extract high-level structural information.
