@@ -254,6 +254,45 @@ class Module:
             "imports": self.imports,
         }
 
+    def build_edges(self):
+        edges = []
+        for class_data in self.classes:
+            edges.append(
+                {
+                    "type": "module_contains",
+                    "from": self.name,
+                    "to": f"{self.name}.{class_data.name}",
+                }
+            )
+            # class -> method containment
+            for meth in class_data.methods:
+                edges.append(
+                    {
+                        "type": "class_contains",
+                        "from": f"{self.name}.{class_data.name}",
+                        "to": f"{self.name}.{class_data.name}.{meth.name}",
+                    }
+                )
+            # inheritance edges
+            for base in class_data.bases:
+                edges.append(
+                    {"type": "inherits", "from": f"{self.name}.{class_data.name}", "to": base}
+                )
+
+            for func in self.functions:
+                edges.append(
+                    {
+                        "type": "module_contains",
+                        "from": self.name,
+                        "to": f"{self.name}.{func.name}",
+                    }
+                )
+            # imports edges
+            for imp in self.imports:
+                edges.append({"type": "imports", "from": self.name, "to": imp})
+
+        return edges
+
     @classmethod
     def from_file(cls, file_path: str, root: str) -> Optional["Module"]:
         """Parse a Python source file and extract high-level structural information.
@@ -412,39 +451,7 @@ class Package:
         """
         edges: List[Dict[str, str]] = []
 
-        for name, module in self.modules.items():
-            for class_info in module.classes:
-                edges.append(
-                    {
-                        "type": "module_contains",
-                        "from": name,
-                        "to": f"{name}.{class_info.name}",
-                    }
-                )
-                # class -> method containment
-                for meth in class_info.methods:
-                    edges.append(
-                        {
-                            "type": "class_contains",
-                            "from": f"{name}.{class_info.name}",
-                            "to": f"{name}.{class_info.name}.{meth.name}",
-                        }
-                    )
-                # inheritance edges
-                for base in class_info.bases:
-                    edges.append(
-                        {"type": "inherits", "from": f"{name}.{class_info.name}", "to": base}
-                    )
-            for func in module.functions:
-                edges.append(
-                    {
-                        "type": "module_contains",
-                        "from": name,
-                        "to": f"{name}.{func.name}",
-                    }
-                )
-            # imports edges
-            for imp in module.imports:
-                edges.append({"type": "imports", "from": name, "to": imp})
+        for _, module in self.modules.items():
+            edges.extend(module.build_edges())
 
         return edges
