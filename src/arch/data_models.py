@@ -57,6 +57,46 @@ class Function:
                 "to": f"{module_name}.{self.name}",
             }
 
+    def to_mermaid_class_diagram(self, detail_level: str = "all", include_decorators: bool = False) -> str:
+        """Create a Mermaid class diagram string for this function.
+
+        Args:
+            detail_level (str): Controls whether this function is rendered based on naming convention.
+                - "all": always render this function (default)
+                - "public": render only if the function name does not start with an underscore
+                - "none": do not render anything
+            include_decorators (bool): If True and the function is rendered, add a Mermaid note listing decorators.
+
+        Returns:
+            str: Mermaid class diagram representing this function node. If filtered out by
+            detail_level, returns a diagram header with no nodes.
+        """
+        allowed_levels = {"all", "public", "none"}
+        if detail_level not in allowed_levels:
+            raise ValueError(
+                f"Unsupported detail_level '{detail_level}'. Expected one of {sorted(allowed_levels)}"
+            )
+
+        lines: List[str] = ["classDiagram"]
+
+        # Apply filtering based on detail_level
+        if detail_level == "none":
+            return "\n".join(lines)
+        if detail_level == "public" and self.name.startswith("_"):
+            return "\n".join(lines)
+
+        # Render the function as a stereotyped class node
+        s = "{\n    }"
+        lines.append(f"    class {self.name} {s}")
+
+        # Optionally add decorators as a note
+        if include_decorators and self.decorators:
+            decos = ", ".join(f"@{d}" if not str(d).startswith("@") else str(d) for d in self.decorators)
+            # Mermaid classDiagram supports notes attached to a class
+            lines.append(f"note for {self.name} \"decorators: {decos}\"")
+
+        return "\n".join(lines)
+
 
 @dataclass
 class Class:
