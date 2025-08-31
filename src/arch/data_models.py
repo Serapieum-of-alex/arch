@@ -629,3 +629,70 @@ class Package:
             edges.extend(module.build_edges())
 
         return edges
+
+    def to_mermaid_class_diagram(
+        self,
+        include_class_relations: bool = True,
+        class_detail_level: str = "all",
+        function_detail_level: str = "all",
+        include_decorators: bool = True,
+    ) -> str:
+        """Create a Mermaid class diagram for the entire package.
+
+        This combines all classes (and optionally functions) from every module into
+        a single Mermaid "classDiagram". It can also include inheritance relations
+        across all classes and add module import relations.
+
+        Args:
+            include_class_relations (bool): If True, include inheritance relations among
+                all classes across modules.
+            class_detail_level (str): Which class methods to include. One of:
+                - "all": include all methods
+                - "public": only methods that do not start with an underscore
+                - "none": do not include any methods
+            function_detail_level (str): Which top-level functions to include. One of:
+                - "all": include all functions
+                - "public": only functions that do not start with an underscore
+                - "none": do not include any functions
+
+        Returns:
+            str: Mermaid class diagram describing the whole package.
+        """
+        allowed_levels = {"all", "public", "none"}
+        if class_detail_level not in allowed_levels:
+            raise ValueError(
+                f"Unsupported class_detail_level '{class_detail_level}'. Expected one of {sorted(allowed_levels)}"
+            )
+        if function_detail_level not in allowed_levels:
+            raise ValueError(
+                f"Unsupported function_detail_level '{function_detail_level}'. Expected one of {sorted(allowed_levels)}"
+            )
+
+        lines: List[str] = ["classDiagram"]
+
+        # Render each module's classes and functions, stripping individual headers
+        for _, module in sorted(self.modules.items(), key=lambda kv: kv[0]):
+            mod_diagram = module.to_mermaid_class_diagram(
+                include_relations=False,
+                class_detail_level=class_detail_level,
+                function_detail_level=function_detail_level,
+                include_decorators=include_decorators,
+            )
+            parts = mod_diagram.splitlines()
+            if parts and parts[0].strip().lower() == "classdiagram":
+                parts = parts[1:]
+            lines.extend(parts)
+
+        # Aggregate inheritance relations across all classes
+        if include_class_relations:
+            added_rel = set()
+            for _, module in sorted(self.modules.items(), key=lambda kv: kv[0]):
+                for cls in module.classes:
+                    for base in cls.bases:
+                        rel = (base, cls.name)
+                        if rel not in added_rel:
+                            lines.append(f"{base} <|-- {cls.name}")
+                            added_rel.add(rel)
+
+
+        return "\n".join(lines)
