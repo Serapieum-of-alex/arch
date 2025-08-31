@@ -1,17 +1,17 @@
 from pathlib import Path
 
-from arch.data_models import FunctionInfo, ClassInfo, Module
+from arch.data_models import Function, Class, Module
 
 
 class TestFunctionInfoInit:
     def test_default_decorators_list_is_empty_and_independent(self):
-        """Inputs: Construct two FunctionInfo instances without passing decorators.
+        """Inputs: Construct two Function instances without passing decorators.
         Expected: Each instance has an empty list for `decorators`, and mutating one instance's list
         does not affect the other (verifies default_factory creates independent lists).
         Checks: List default behavior and independence across instances.
         """
-        f1 = FunctionInfo(name="f1", lineno=1)
-        f2 = FunctionInfo(name="f2", lineno=2)
+        f1 = Function(name="f1", lineno=1)
+        f2 = Function(name="f2", lineno=2)
 
         assert f1.decorators == []
         assert f2.decorators == []
@@ -21,28 +21,28 @@ class TestFunctionInfoInit:
         assert f2.decorators == []  # independence
 
     def test_specified_decorators_including_multiple_values(self):
-        """Inputs: Construct FunctionInfo with a provided `decorators` list (including multiple entries).
+        """Inputs: Construct Function with a provided `decorators` list (including multiple entries).
         Expected: The `decorators` attribute equals the provided list in the same order.
         Checks: Proper assignment and preservation of order for decorators.
         """
-        f = FunctionInfo(name="multi", lineno=10, decorators=["deco1", "deco2"])
+        f = Function(name="multi", lineno=10, decorators=["deco1", "deco2"])
         assert f.decorators == ["deco1", "deco2"]
 
 
 class TestClassInfoInit:
     def test_defaults_for_bases_and_methods_are_empty_and_independent(self):
-        """Inputs: Construct two ClassInfo instances without passing bases/methods.
+        """Inputs: Construct two Class instances without passing bases/methods.
         Expected: Each instance has empty independent lists for `bases` and `methods`.
         Checks: List defaults via default_factory and independence across instances.
         """
-        c1 = ClassInfo(name="A", lineno=1)
-        c2 = ClassInfo(name="B", lineno=2)
+        c1 = Class(name="A", lineno=1)
+        c2 = Class(name="B", lineno=2)
 
         assert c1.bases == [] and c1.methods == []
         assert c2.bases == [] and c2.methods == []
 
         c1.bases.append("Base")
-        c1.methods.append(FunctionInfo("m", 3))
+        c1.methods.append(Function("m", 3))
 
         assert c1.bases == ["Base"]
         assert [m.name for m in c1.methods] == ["m"]
@@ -50,12 +50,12 @@ class TestClassInfoInit:
         assert c2.bases == [] and c2.methods == []
 
     def test_populated_with_multiple_methods_and_bases(self):
-        """Inputs: Construct ClassInfo with multiple bases and methods.
+        """Inputs: Construct Class with multiple bases and methods.
         Expected: The object stores bases and methods as provided.
-        Checks: Correct storage and retrieval of bases and nested FunctionInfo items.
+        Checks: Correct storage and retrieval of bases and nested Function items.
         """
-        methods = [FunctionInfo("area", 10), FunctionInfo("default", 11, decorators=["classmethod"]) ]
-        cls = ClassInfo(name="Concrete", lineno=5, bases=["PrintableMixin", "Base"], methods=methods)
+        methods = [Function("area", 10), Function("default", 11, decorators=["classmethod"])]
+        cls = Class(name="Concrete", lineno=5, bases=["PrintableMixin", "Base"], methods=methods)
 
         assert cls.name == "Concrete"
         assert cls.bases == ["PrintableMixin", "Base"]
@@ -78,8 +78,8 @@ class TestModuleInfoInit:
         assert m1.classes == [] and m1.functions == [] and m1.imports == []
         assert m2.classes == [] and m2.functions == [] and m2.imports == []
 
-        m1.classes.append(ClassInfo("A", 1))
-        m1.functions.append(FunctionInfo("f", 2))
+        m1.classes.append(Class("A", 1))
+        m1.functions.append(Function("f", 2))
         m1.imports.append("os")
 
         assert [c.name for c in m1.classes] == ["A"]

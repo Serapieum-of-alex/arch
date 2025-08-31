@@ -15,7 +15,7 @@ def get_filtered_objects(items):
 
 
 @dataclass
-class FunctionInfo:
+class Function:
     """Lightweight description of a top-level or method function discovered in a module.
 
     Args:
@@ -27,7 +27,7 @@ class FunctionInfo:
     - Inspect a simple function and record its name and definition line
         ```python
 
-        >>> info = FunctionInfo(name="foo", lineno=10, decorators=["staticmethod"])
+        >>> info = Function(name="foo", lineno=10, decorators=["staticmethod"])
         >>> info.name
         'foo'
 
@@ -52,20 +52,20 @@ class FunctionInfo:
 
 
 @dataclass
-class ClassInfo:
+class Class:
     """Description of a class discovered in a module.
 
     Attributes:
         name (str): Class name.
         lineno (int): Line number where the class is defined in its source file (1-based).
         bases (List[str]): Names of the base classes as parsed from the AST.
-        methods (List[FunctionInfo]): Methods defined directly on the class.
+        methods (List[Function]): Methods defined directly on the class.
 
     Examples:
     - Create a ClassInfo with two methods
         ```python
 
-        >>> cls = ClassInfo(name="MyClass", lineno=5, bases=["Base"], methods=[FunctionInfo("a", 10), FunctionInfo("b", 20)])
+        >>> cls = Class(name="MyClass", lineno=5, bases=["Base"], methods=[Function("a", 10), Function("b", 20)])
         >>> [m.name for m in cls.methods]
         ['a', 'b']
 
@@ -75,17 +75,17 @@ class ClassInfo:
     name: str
     lineno: int
     bases: List[str] = field(default_factory=list)
-    methods: List[FunctionInfo] = field(default_factory=list)
+    methods: List[Function] = field(default_factory=list)
 
     @classmethod
     def from_tree_node(cls, node):
         bases = [_extract_name(b) for b in node.bases]
-        methods: List[FunctionInfo] = []
+        methods: List[Function] = []
         for n in node.body:
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 decorators = [_extract_name(d) for d in n.decorator_list]
                 methods.append(
-                    FunctionInfo(
+                    Function(
                         name=n.name, lineno=n.lineno, decorators=decorators
                     )
                 )
@@ -117,8 +117,8 @@ class Module:
     Args:
         name (str): Dotted module name relative to the crawl root (e.g., "pkg.sub.module").
         path (str): Absolute filesystem path to the module file.
-        classes (List[ClassInfo]): Classes defined in this module.
-        functions (List[FunctionInfo]): Top-level functions defined in this module.
+        classes (List[Class]): Classes defined in this module.
+        functions (List[Function]): Top-level functions defined in this module.
         imports (List[str]): Imported module names (best-effort, based on static AST parsing).
 
     Examples:
@@ -138,8 +138,8 @@ class Module:
 
     name: str  # dotted name relative to root (e.g., package.sub.module)
     path: str  # absolute filesystem path
-    classes: List[ClassInfo] = field(default_factory=list)
-    functions: List[FunctionInfo] = field(default_factory=list)
+    classes: List[Class] = field(default_factory=list)
+    functions: List[Function] = field(default_factory=list)
     imports: List[str] = field(
         default_factory=list
     )  # imported module names (best-effort)
@@ -219,12 +219,12 @@ class Module:
 
     @staticmethod
     def get_classes(groups):
-        return [ClassInfo.from_tree_node(node) for node in groups.get(ast.ClassDef, [])]
+        return [Class.from_tree_node(node) for node in groups.get(ast.ClassDef, [])]
 
     @staticmethod
     def get_functions(groups):
         return [
-            FunctionInfo.from_tree_node(node) for node in
+            Function.from_tree_node(node) for node in
             groups.get(ast.FunctionDef, []) + groups.get(ast.AsyncFunctionDef, [])
         ]
 
@@ -392,8 +392,8 @@ class Package:
             ```python
 
             >>> mod = Module(name='pkg.m', path='X',
-            ...                  classes=[ClassInfo(name='A', lineno=1, bases=['Base'], methods=[FunctionInfo('x', 2)])],
-            ...                  functions=[FunctionInfo('f', 3)], imports=['math'])
+            ...                  classes=[Class(name='A', lineno=1, bases=['Base'], methods=[Function('x', 2)])],
+            ...                  functions=[Function('f', 3)], imports=['math'])
             >>> pm = Package(root_path='/', roots=['pkg'], modules={'pkg.m': module})
             >>> edges = build_edges(pm)
             >>> any(e['type']=='module_contains' and e['to']=='pkg.m.A' for e in edges)

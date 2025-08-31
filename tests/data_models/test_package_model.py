@@ -1,4 +1,4 @@
-from arch.data_models import Package, Module, ClassInfo, FunctionInfo
+from arch.data_models import Package, Module, Class, Function
 from pathlib import Path
 
 
@@ -23,19 +23,19 @@ class TestPackageModel_to_dict:
         Checks: Sorting of module keys, correctness of nested serialization, and presence of expected edge types.
         """
         # Build classes and functions
-        concrete = ClassInfo(
+        concrete = Class(
             name="Concrete",
             lineno=60,
             bases=["PrintableMixin", "Base"],
             methods=[
-                FunctionInfo("area", 66),
-                FunctionInfo("default", 70, decorators=["classmethod"]),
-                FunctionInfo("tau", 42, decorators=["staticmethod"]),
+                Function("area", 66),
+                Function("default", 70, decorators=["classmethod"]),
+                Function("tau", 42, decorators=["staticmethod"]),
             ],
         )
         core_funcs = [
-            FunctionInfo("greet", 44, decorators=["simple_deco"]),
-            FunctionInfo("add", 48, decorators=["times"]),
+            Function("greet", 44, decorators=["simple_deco"]),
+            Function("add", 48, decorators=["times"]),
         ]
         mod_core = Module(
             name="pkg.core",
@@ -49,7 +49,7 @@ class TestPackageModel_to_dict:
             name="pkg.utils",
             path=str(Path(__file__).parent / "data" / "test-package-1" / "utils.py"),
             classes=[],
-            functions=[FunctionInfo("parse", 97)],
+            functions=[Function("parse", 97)],
             imports=[],
         )
 
@@ -65,7 +65,7 @@ class TestPackageModel_to_dict:
             name="pkg.multi",
             path=str(Path(__file__).parent / "data" / "test-package-1" / "multi_decorators.py"),
             classes=[],
-            functions=[FunctionInfo("multi", 15, decorators=["deco1", "deco2"])],
+            functions=[Function("multi", 15, decorators=["deco1", "deco2"])],
             imports=[],
         )
 
@@ -116,24 +116,24 @@ class TestPackageModel_build_edges:
         class_contains (for each method), inherits (for each base), and imports (for each import).
         Checks: Count of edges per category and presence of specific representative edges.
         """
-        concrete = ClassInfo(
+        concrete = Class(
             name="Concrete",
             lineno=60,
             bases=["PrintableMixin", "Base"],
-            methods=[FunctionInfo("area", 66), FunctionInfo("default", 70)],
+            methods=[Function("area", 66), Function("default", 70)],
         )
         mod_core = Module(
             name="pkg.core",
             path="/abs/core.py",
             classes=[concrete],
-            functions=[FunctionInfo("greet", 44), FunctionInfo("add", 48)],
+            functions=[Function("greet", 44), Function("add", 48)],
             imports=["math", "typing"],
         )
         mod_utils = Module(
             name="pkg.utils",
             path="/abs/utils.py",
             classes=[],
-            functions=[FunctionInfo("parse", 97)],
+            functions=[Function("parse", 97)],
             imports=[],
         )
         mod_only = Module(
