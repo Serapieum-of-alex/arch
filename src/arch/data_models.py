@@ -279,17 +279,17 @@ class Module:
                     {"type": "inherits", "from": f"{self.name}.{class_data.name}", "to": base}
                 )
 
-            for func in self.functions:
-                edges.append(
-                    {
-                        "type": "module_contains",
-                        "from": self.name,
-                        "to": f"{self.name}.{func.name}",
-                    }
-                )
-            # imports edges
-            for imp in self.imports:
-                edges.append({"type": "imports", "from": self.name, "to": imp})
+        for func in self.functions:
+            edges.append(
+                {
+                    "type": "module_contains",
+                    "from": self.name,
+                    "to": f"{self.name}.{func.name}",
+                }
+            )
+        # imports edges
+        for imp in self.imports:
+            edges.append({"type": "imports", "from": self.name, "to": imp})
 
         return edges
 
