@@ -388,7 +388,8 @@ class Module:
         return edges
 
     def to_mermaid_class_diagram(
-        self, include_relations: bool = True, class_detail_level: str = "all", function_detail_level: str = "all"
+        self, include_relations: bool = True, class_detail_level: str = "all", function_detail_level: str = "all",
+        include_decorators=True
     ) -> str:
         """Create a Mermaid class diagram string for this module.
 
@@ -439,7 +440,7 @@ class Module:
                 for base in sorted(cls.bases):
                     lines.append(f"{base} <|-- {cls.name}")
 
-        # Render top-level functions as stereotype nodes
+        # Render top-level functions via Function.to_mermaid_class_diagram
         if function_detail_level != "none":
             if function_detail_level == "all":
                 funcs = self.functions
@@ -447,8 +448,22 @@ class Module:
                 funcs = [f for f in self.functions if not f.name.startswith("_")]
 
             for f in sorted(funcs, key=lambda ff: ff.name):
-                # Mermaid class with function stereotype and no members
-                lines.append(f"class {f.name} <<function>>")
+                func_diagram = f.to_mermaid_class_diagram(detail_level=function_detail_level, include_decorators=include_decorators)
+                parts = func_diagram.splitlines()
+                if parts and parts[0].strip().lower() == "classdiagram":
+                    parts = parts[1:]
+                lines.extend(parts)
+
+        return "\n".join(lines)
+
+    def dependency(self):
+        lines: List[str] = ["classDiagram"]
+        added_imports = set()
+        for imp in self.imports:
+            edge = (self.name, imp)
+            if edge not in added_imports:
+                lines.append(f"{self.name} ..> {imp} : imports")
+                added_imports.add(edge)
 
         return "\n".join(lines)
 
