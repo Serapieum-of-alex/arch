@@ -1,8 +1,17 @@
 import ast
 from typing import List, Dict, Optional
 from pathlib import Path
+from collections import defaultdict
 from dataclasses import dataclass, field
 from arch.utils import _extract_name
+
+
+def get_filtered_objects(items):
+    groups = defaultdict(list)
+    for obj in items:
+        groups[type(obj)].append(obj)
+
+    return groups
 
 
 @dataclass
@@ -186,6 +195,34 @@ class ModuleInfo:
             return None
         return tree
 
+    @staticmethod
+    def get_classes(groups):
+        return [ClassInfo.from_tree_node(node) for node in groups.get(ast.ClassDef, [])]
+
+    @staticmethod
+    def get_functions(groups):
+        return [
+            FunctionInfo.from_tree_node(node) for node in
+            groups.get(ast.FunctionDef, []) + groups.get(ast.AsyncFunctionDef, [])
+        ]
+
+    @staticmethod
+    def get_imports(groups):
+        imports = []
+
+        for node in groups.get(ast.Import, []):
+
+            for alias in node.names:
+                if alias.name:
+                    imports.append(alias.name)
+
+        for node in groups.get(ast.ImportFrom, []):
+            module = node.module or ""
+            if module:
+                imports.append(module)
+
+        return imports
+
     @classmethod
     def from_file(cls, file_path: str, root: str) -> Optional["ModuleInfo"]:
         """Parse a Python source file and extract high-level structural information.
@@ -232,35 +269,15 @@ class ModuleInfo:
             dotted_name = base
 
         tree = cls.get_tree(file_path)
+        groups = get_filtered_objects(list(tree.body))
 
-        classes: List[ClassInfo] = []
-        functions: List[FunctionInfo] = []
-        imports: List[str] = []
-
-        for node in tree.body:
-            if isinstance(node, ast.ClassDef):
-                classes.append(
-                    ClassInfo.from_tree_node(node)
-                )
-            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                functions.append(
-                    FunctionInfo.from_tree_node(node)
-                )
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    if alias.name:
-                        imports.append(alias.name)
-            elif isinstance(node, ast.ImportFrom):
-                module = node.module or ""
-                if module:
-                    imports.append(module)
 
         return cls(
             name=dotted_name,
             path=str(Path(file_path).absolute()),
-            classes=classes,
-            functions=functions,
-            imports=sorted(set(imports)),
+            classes=cls.get_classes(groups),
+            functions=cls.get_functions(groups),
+            imports=sorted(set(cls.get_imports(groups))),
         )
 
 
