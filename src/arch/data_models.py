@@ -1,5 +1,5 @@
 import ast
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -42,6 +42,13 @@ class FunctionInfo:
     def from_tree_node(cls, node):
         decorators = [_extract_name(d) for d in node.decorator_list]
         return cls(name=node.name, lineno=node.lineno, decorators=decorators)
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "lineno": self.lineno,
+            "decorators": self.decorators,
+        }
 
 
 @dataclass
@@ -86,6 +93,21 @@ class ClassInfo:
         return cls(
                 name=node.name, lineno=node.lineno, bases=bases, methods=methods
             )
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "lineno": self.lineno,
+            "bases": self.bases,
+            "methods": [
+                {
+                    "name": m.name,
+                    "lineno": m.lineno,
+                    "decorators": m.decorators,
+                }
+                for m in self.methods
+            ],
+        }
 
 
 @dataclass
@@ -223,6 +245,15 @@ class ModuleInfo:
 
         return imports
 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "path": self.path,
+            "classes": [c.to_dict() for c in self.classes],
+            "functions": [f.to_dict() for f in self.functions],
+            "imports": self.imports,
+        }
+
     @classmethod
     def from_file(cls, file_path: str, root: str) -> Optional["ModuleInfo"]:
         """Parse a Python source file and extract high-level structural information.
@@ -270,7 +301,6 @@ class ModuleInfo:
 
         tree = cls.get_tree(file_path)
         groups = get_filtered_objects(list(tree.body))
-
 
         return cls(
             name=dotted_name,
@@ -338,38 +368,7 @@ class PackageModel:
         return {
             "root_path": self.root_path,
             "roots": self.roots,
-            "modules": {
-                k: {
-                    "name": v.name,
-                    "path": v.path,
-                    "classes": [
-                        {
-                            "name": c.name,
-                            "lineno": c.lineno,
-                            "bases": c.bases,
-                            "methods": [
-                                {
-                                    "name": m.name,
-                                    "lineno": m.lineno,
-                                    "decorators": m.decorators,
-                                }
-                                for m in c.methods
-                            ],
-                        }
-                        for c in v.classes
-                    ],
-                    "functions": [
-                        {
-                            "name": f.name,
-                            "lineno": f.lineno,
-                            "decorators": f.decorators,
-                        }
-                        for f in v.functions
-                    ],
-                    "imports": v.imports,
-                }
-                for k, v in sorted(self.modules.items())
-            },
+            "modules": {k: v.to_dict() for k, v in sorted(self.modules.items())},
             "edges": self.build_edges(),
         }
 
