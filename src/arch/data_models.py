@@ -50,6 +50,13 @@ class Function:
             "decorators": self.decorators,
         }
 
+    def build_edges(self, module_name: str) -> Dict[str, str]:
+        return {
+                "type": "module_contains",
+                "from": module_name,
+                "to": f"{module_name}.{self.name}",
+            }
+
 
 @dataclass
 class Class:
@@ -108,6 +115,31 @@ class Class:
                 for m in self.methods
             ],
         }
+
+    def build_edges(self, module_name: str):
+        edges = [
+            {
+                "type": "module_contains",
+                "from": module_name,
+                "to": f"{module_name}.{self.name}",
+            }
+        ]
+        # class -> method containment
+        for meth in self.methods:
+            edges.append(
+                {
+                    "type": "class_contains",
+                    "from": f"{module_name}.{self.name}",
+                    "to": f"{module_name}.{self.name}.{meth.name}",
+                }
+            )
+        # inheritance edges
+        for base in self.bases:
+            edges.append(
+                {"type": "inherits", "from": f"{module_name}.{self.name}", "to": base}
+            )
+
+        return edges
 
 
 @dataclass
@@ -257,35 +289,11 @@ class Module:
     def build_edges(self):
         edges = []
         for class_data in self.classes:
-            edges.append(
-                {
-                    "type": "module_contains",
-                    "from": self.name,
-                    "to": f"{self.name}.{class_data.name}",
-                }
-            )
-            # class -> method containment
-            for meth in class_data.methods:
-                edges.append(
-                    {
-                        "type": "class_contains",
-                        "from": f"{self.name}.{class_data.name}",
-                        "to": f"{self.name}.{class_data.name}.{meth.name}",
-                    }
-                )
-            # inheritance edges
-            for base in class_data.bases:
-                edges.append(
-                    {"type": "inherits", "from": f"{self.name}.{class_data.name}", "to": base}
-                )
+            edges.extend(class_data.build_edges(self.name))
 
         for func in self.functions:
             edges.append(
-                {
-                    "type": "module_contains",
-                    "from": self.name,
-                    "to": f"{self.name}.{func.name}",
-                }
+                func.build_edges(self.name)
             )
         # imports edges
         for imp in self.imports:
