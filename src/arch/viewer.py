@@ -50,7 +50,7 @@ def render_tree(model_dict: Dict) -> str:
     """Render a human-readable ASCII tree of the package hierarchy.
 
     Args:
-        model_dict (Dict): A model as produced by ``crawl_package`` or ``PackageModel.to_dict``.
+        model_dict (Dict): A model as produced by ``crawl_package`` or ``Package.to_dict``.
 
     Returns:
         str: A string with an ASCII tree, prefixed by a header listing package roots.

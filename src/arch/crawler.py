@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Dict, List, Iterable
-from arch.data_models import PackageModel, ModuleInfo
+from arch.data_models import Package, ModuleInfo
 
 # Public API surface of this module:
 # - crawl_package(path: str) -> Dict
@@ -169,7 +169,7 @@ def _discover_roots(root: str) -> List[str]:
     return out
 
 
-def crawl_package(root_path: str) -> Dict:
+def crawl_package(root_path: str) -> Package:
     """Crawl a directory for Python packages and build a serializable model.
 
     The crawler walks the directory tree under ``root_path``, finds Python modules,
@@ -217,7 +217,7 @@ def crawl_package(root_path: str) -> Dict:
         ```
 
     See Also:
-        PackageModel: In-memory format used before conversion to dict.
+        Package: In-memory format used before conversion to dict.
         build_edges: Generates the relationships included in the output.
     """
     abs_root = Path(root_path).absolute()
@@ -228,12 +228,13 @@ def crawl_package(root_path: str) -> Dict:
         mod = ModuleInfo.from_file(file_path, abs_root)
         if mod is None:
             continue
+
         modules[mod.name] = mod
 
-    model = PackageModel(
+    model = Package(
         root_path=str(abs_root), roots=_discover_roots(abs_root), modules=modules
     )
-    return model.to_dict()
+    return model
 
 
 def to_json(model_dict: Dict, indent: int = 2) -> str:

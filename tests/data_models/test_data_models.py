@@ -1,7 +1,6 @@
-import os
 from pathlib import Path
 
-from arch.data_models import FunctionInfo, ClassInfo, ModuleInfo, PackageModel
+from arch.data_models import FunctionInfo, ClassInfo, ModuleInfo
 
 
 class TestFunctionInfoInit:

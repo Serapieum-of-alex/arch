@@ -312,7 +312,7 @@ class ModuleInfo:
 
 
 @dataclass
-class PackageModel:
+class Package:
     """In-memory representation of the crawled package structure.
 
     Args:
@@ -332,7 +332,7 @@ class PackageModel:
     - Construct a minimal empty model and convert to a plain dictionary
         ```python
 
-        >>> model = PackageModel(root_path="C:/tmp", roots=["pkg"], modules={})
+        >>> model = Package(root_path="C:/tmp", roots=["pkg"], modules={})
         >>> d = model.to_dict()
         >>> sorted(d.keys())
         ['edges', 'modules', 'root_path', 'roots']
@@ -357,8 +357,8 @@ class PackageModel:
         Examples:
         - Minimal conversion
             ```python
-            >>> from arch.crawler import PackageModel
-            >>> model = PackageModel(root_path="C:/tmp", roots=[], modules={})
+            >>> from arch.crawler import Package
+            >>> model = Package(root_path="C:/tmp", roots=[], modules={})
             >>> data = model.to_dict()
             >>> sorted(data.keys())
             ['edges', 'modules', 'root_path', 'roots']
@@ -394,7 +394,7 @@ class PackageModel:
             >>> mod = ModuleInfo(name='pkg.m', path='X',
             ...                  classes=[ClassInfo(name='A', lineno=1, bases=['Base'], methods=[FunctionInfo('x', 2)])],
             ...                  functions=[FunctionInfo('f', 3)], imports=['math'])
-            >>> pm = PackageModel(root_path='/', roots=['pkg'], modules={'pkg.m': mod})
+            >>> pm = Package(root_path='/', roots=['pkg'], modules={'pkg.m': module})
             >>> edges = build_edges(pm)
             >>> any(e['type']=='module_contains' and e['to']=='pkg.m.A' for e in edges)
             True
@@ -411,39 +411,40 @@ class PackageModel:
             crawl_package: Produces the PackageModel consumed here.
         """
         edges: List[Dict[str, str]] = []
-        # module -> class/function containment
-        for mname, mod in self.modules.items():
-            for c in mod.classes:
+
+        for name, module in self.modules.items():
+            for class_info in module.classes:
                 edges.append(
                     {
                         "type": "module_contains",
-                        "from": mname,
-                        "to": f"{mname}.{c.name}",
+                        "from": name,
+                        "to": f"{name}.{class_info.name}",
                     }
                 )
                 # class -> method containment
-                for meth in c.methods:
+                for meth in class_info.methods:
                     edges.append(
                         {
                             "type": "class_contains",
-                            "from": f"{mname}.{c.name}",
-                            "to": f"{mname}.{c.name}.{meth.name}",
+                            "from": f"{name}.{class_info.name}",
+                            "to": f"{name}.{class_info.name}.{meth.name}",
                         }
                     )
                 # inheritance edges
-                for base in c.bases:
+                for base in class_info.bases:
                     edges.append(
-                        {"type": "inherits", "from": f"{mname}.{c.name}", "to": base}
+                        {"type": "inherits", "from": f"{name}.{class_info.name}", "to": base}
                     )
-            for f in mod.functions:
+            for func in module.functions:
                 edges.append(
                     {
                         "type": "module_contains",
-                        "from": mname,
-                        "to": f"{mname}.{f.name}",
+                        "from": name,
+                        "to": f"{name}.{func.name}",
                     }
                 )
             # imports edges
-            for imp in mod.imports:
-                edges.append({"type": "imports", "from": mname, "to": imp})
+            for imp in module.imports:
+                edges.append({"type": "imports", "from": name, "to": imp})
+
         return edges

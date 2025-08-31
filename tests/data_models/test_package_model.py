@@ -1,14 +1,14 @@
-from arch.data_models import PackageModel, ModuleInfo, ClassInfo, FunctionInfo
+from arch.data_models import Package, ModuleInfo, ClassInfo, FunctionInfo
 from pathlib import Path
 
 
 class TestPackageModel_to_dict:
     def test_empty_model_serialization(self):
-        """Inputs: Create a PackageModel with no modules and empty roots list.
+        """Inputs: Create a Package with no modules and empty roots list.
         Expected: to_dict returns a dict with keys root_path, roots, modules={}, edges=[].
         Checks: Structure of the serialized dict and the empty edges list from build_edges.
         """
-        pm = PackageModel(root_path=str(Path.cwd()), roots=[], modules={})
+        pm = Package(root_path=str(Path.cwd()), roots=[], modules={})
         d = pm.to_dict()
         assert sorted(d.keys()) == ["edges", "modules", "root_path", "roots"]
         assert d["root_path"] == str(Path.cwd())
@@ -17,7 +17,7 @@ class TestPackageModel_to_dict:
         assert d["edges"] == []
 
     def test_populated_model_serialization_and_sorted_modules(self):
-        """Inputs: Build a PackageModel with multiple modules containing classes, methods, functions, and imports.
+        """Inputs: Build a Package with multiple modules containing classes, methods, functions, and imports.
         Expected: to_dict returns a dict with modules serialized under sorted keys; nested structures for classes,
         methods, and functions include name/lineno/decorators; imports are preserved; edges are included.
         Checks: Sorting of module keys, correctness of nested serialization, and presence of expected edge types.
@@ -75,7 +75,7 @@ class TestPackageModel_to_dict:
             mod_only.name: mod_only,
             mod_multi.name: mod_multi,
         }
-        pm = PackageModel(root_path=str(Path.cwd()), roots=["pkg"], modules=modules)
+        pm = Package(root_path=str(Path.cwd()), roots=["pkg"], modules=modules)
 
         d = pm.to_dict()
         # Keys present
@@ -102,15 +102,15 @@ class TestPackageModel_to_dict:
 
 class TestPackageModel_build_edges:
     def test_no_edges_for_empty_model(self):
-        """Inputs: PackageModel with an empty modules mapping.
+        """Inputs: Package with an empty modules mapping.
         Expected: build_edges returns an empty list.
         Checks: No edges created when there are no modules/classes/functions/imports.
         """
-        pm = PackageModel(root_path="/", roots=[], modules={})
+        pm = Package(root_path="/", roots=[], modules={})
         assert pm.build_edges() == []
 
     def test_edges_for_comprehensive_model(self):
-        """Inputs: Construct a PackageModel with modules containing classes (with methods and multiple bases),
+        """Inputs: Construct a Package with modules containing classes (with methods and multiple bases),
         functions, and imports, including a module that only has imports.
         Expected: build_edges returns edges of types module_contains (for classes and functions),
         class_contains (for each method), inherits (for each base), and imports (for each import).
@@ -144,7 +144,7 @@ class TestPackageModel_build_edges:
             imports=["os", "sys", "math"],
         )
         modules = {m.name: m for m in [mod_core, mod_utils, mod_only]}
-        pm = PackageModel(root_path="/abs", roots=["pkg"], modules=modules)
+        pm = Package(root_path="/abs", roots=["pkg"], modules=modules)
 
         edges = pm.build_edges()
 
@@ -167,12 +167,12 @@ class TestPackageModel_build_edges:
         assert {e["to"] for e in imps} >= {"os", "sys", "math", "typing"}
 
     def test_edges_when_no_classes_or_functions_but_imports_exist(self):
-        """Inputs: PackageModel with a single module that has only imports but no classes or functions.
+        """Inputs: Package with a single module that has only imports but no classes or functions.
         Expected: build_edges creates only 'imports' edges corresponding to each import.
         Checks: Edge list contains only 'imports' entries and in the expected count.
         """
         mod = ModuleInfo(name="pkg.only", path="/abs/only.py", imports=["os", "sys"])  # no classes/functions
-        pm = PackageModel(root_path="/", roots=["pkg"], modules={"pkg.only": mod})
+        pm = Package(root_path="/", roots=["pkg"], modules={"pkg.only": mod})
         edges = pm.build_edges()
         assert all(e["type"] == "imports" for e in edges)
         assert {e["to"] for e in edges} == {"os", "sys"}
