@@ -141,6 +141,52 @@ class Class:
 
         return edges
 
+    def to_mermaid_class_diagram(self, include_relations: bool = True, detail_level: str = "all") -> str:
+        """Create a Mermaid class diagram string for this class.
+
+        Args:
+            include_relations (bool): If True, include inheritance relations to base classes.
+            detail_level (str): Controls which methods are included in the diagram. One of:
+                - "all": include all methods (default)
+                - "public": include only methods that do not start with an underscore
+                - "none": do not include any methods
+
+        Returns:
+            str: Mermaid class diagram describing this class.
+
+        Notes:
+            - Only method names are available; parameters and attributes are not tracked by the model.
+            - Methods are rendered as public (+) with empty parameter lists for simplicity.
+        """
+        # Validate detail_level
+        allowed_levels = {"all", "public", "none"}
+        if detail_level not in allowed_levels:
+            raise ValueError(f"Unsupported detail_level '{detail_level}'. Expected one of {sorted(allowed_levels)}")
+
+        lines: List[str] = ["classDiagram"]
+
+        # Class declaration with methods
+        lines.append(f"class {self.name} {{")
+        # Determine which methods to include
+        if detail_level == "all":
+            selected_methods = self.methods
+        elif detail_level == "public":
+            selected_methods = [m for m in self.methods if not m.name.startswith("_")]
+        else:  # "none"
+            selected_methods = []
+
+        for m in sorted(selected_methods, key=lambda mm: mm.name):
+            lines.append(f"  +{m.name}()")
+        lines.append("}")
+
+        # Inheritance relations
+        if include_relations:
+            for base in sorted(self.bases):
+                # Mermaid: Base <|-- Derived
+                lines.append(f"{base} <|-- {self.name}")
+
+        return "\n".join(lines)
+
 
 @dataclass
 class Module:
