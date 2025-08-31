@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from arch.data_models import FunctionInfo, ClassInfo, ModuleInfo
+from arch.data_models import FunctionInfo, ClassInfo, Module
 
 
 class TestFunctionInfoInit:
@@ -66,14 +66,14 @@ class TestClassInfoInit:
 
 class TestModuleInfoInit:
     def test_defaults_for_collections_are_empty_and_independent(self, tmp_path: Path):
-        """Inputs: Create two ModuleInfo objects with only name/path provided.
+        """Inputs: Create two Module objects with only name/path provided.
         Expected: classes/functions/imports default to empty lists, independent across instances.
-        Checks: default_factory behavior for ModuleInfo lists.
+        Checks: default_factory behavior for Module lists.
         """
         path1 = str(tmp_path / "m1.py")
         path2 = str(tmp_path / "m2.py")
-        m1 = ModuleInfo(name="pkg.m1", path=path1)
-        m2 = ModuleInfo(name="pkg.m2", path=path2)
+        m1 = Module(name="pkg.m1", path=path1)
+        m2 = Module(name="pkg.m2", path=path2)
 
         assert m1.classes == [] and m1.functions == [] and m1.imports == []
         assert m2.classes == [] and m2.functions == [] and m2.imports == []
@@ -89,10 +89,10 @@ class TestModuleInfoInit:
         assert m2.classes == [] and m2.functions == [] and m2.imports == []
 
     def test_populated_module_uses_realistic_paths(self):
-        """Inputs: Construct a ModuleInfo referencing an actual file under tests/data/test-package-1.
+        """Inputs: Construct a Module referencing an actual file under tests/data/test-package-1.
         Expected: The provided absolute path is preserved in the dataclass `path` attribute.
         Checks: Path assignment correctness; not validating existence logic in data model, only storage.
         """
         file_path = "tests/data/test-package-1/core.py"
-        mod = ModuleInfo(name="pkg.core", path=str(file_path))
+        mod = Module(name="pkg.core", path=str(file_path))
         assert mod.path == "tests/data/test-package-1/core.py"

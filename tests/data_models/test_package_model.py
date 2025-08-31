@@ -1,4 +1,4 @@
-from arch.data_models import Package, ModuleInfo, ClassInfo, FunctionInfo
+from arch.data_models import Package, Module, ClassInfo, FunctionInfo
 from pathlib import Path
 
 
@@ -37,7 +37,7 @@ class TestPackageModel_to_dict:
             FunctionInfo("greet", 44, decorators=["simple_deco"]),
             FunctionInfo("add", 48, decorators=["times"]),
         ]
-        mod_core = ModuleInfo(
+        mod_core = Module(
             name="pkg.core",
             path=str(Path(__file__).parent / "data" / "test-package-1" / "core.py"),
             classes=[concrete],
@@ -45,7 +45,7 @@ class TestPackageModel_to_dict:
             imports=["math", "typing"],
         )
 
-        mod_utils = ModuleInfo(
+        mod_utils = Module(
             name="pkg.utils",
             path=str(Path(__file__).parent / "data" / "test-package-1" / "utils.py"),
             classes=[],
@@ -53,7 +53,7 @@ class TestPackageModel_to_dict:
             imports=[],
         )
 
-        mod_only = ModuleInfo(
+        mod_only = Module(
             name="pkg.only_imports",
             path=str(Path(__file__).parent / "data" / "test-package-1" / "only_imports.py"),
             classes=[],
@@ -61,7 +61,7 @@ class TestPackageModel_to_dict:
             imports=["os", "sys", "math"],
         )
 
-        mod_multi = ModuleInfo(
+        mod_multi = Module(
             name="pkg.multi",
             path=str(Path(__file__).parent / "data" / "test-package-1" / "multi_decorators.py"),
             classes=[],
@@ -122,21 +122,21 @@ class TestPackageModel_build_edges:
             bases=["PrintableMixin", "Base"],
             methods=[FunctionInfo("area", 66), FunctionInfo("default", 70)],
         )
-        mod_core = ModuleInfo(
+        mod_core = Module(
             name="pkg.core",
             path="/abs/core.py",
             classes=[concrete],
             functions=[FunctionInfo("greet", 44), FunctionInfo("add", 48)],
             imports=["math", "typing"],
         )
-        mod_utils = ModuleInfo(
+        mod_utils = Module(
             name="pkg.utils",
             path="/abs/utils.py",
             classes=[],
             functions=[FunctionInfo("parse", 97)],
             imports=[],
         )
-        mod_only = ModuleInfo(
+        mod_only = Module(
             name="pkg.only_imports",
             path="/abs/only_imports.py",
             classes=[],
@@ -171,7 +171,7 @@ class TestPackageModel_build_edges:
         Expected: build_edges creates only 'imports' edges corresponding to each import.
         Checks: Edge list contains only 'imports' entries and in the expected count.
         """
-        mod = ModuleInfo(name="pkg.only", path="/abs/only.py", imports=["os", "sys"])  # no classes/functions
+        mod = Module(name="pkg.only", path="/abs/only.py", imports=["os", "sys"])  # no classes/functions
         pm = Package(root_path="/", roots=["pkg"], modules={"pkg.only": mod})
         edges = pm.build_edges()
         assert all(e["type"] == "imports" for e in edges)

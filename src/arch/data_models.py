@@ -111,7 +111,7 @@ class ClassInfo:
 
 
 @dataclass
-class ModuleInfo:
+class Module:
     """Container describing a single Python module discovered under the root.
 
     Args:
@@ -125,7 +125,7 @@ class ModuleInfo:
     - Construct a module description manually
         ```python
 
-        >>> mi = ModuleInfo(name="pkg.mod", path="/abs/path/mod.py")
+        >>> mi = Module(name="pkg.mod", path="/abs/path/mod.py")
         >>> mi.name
         'pkg.mod'
 
@@ -170,7 +170,7 @@ class ModuleInfo:
             ```
             - the function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/mod.py`` as file path
             ```python
-            >>> ModuleInfo.convert_path_to_dot("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
+            >>> Module.convert_path_to_dot("/path/to/root", "/path/to/root/pkg/mod.py")  # doctest: +SKIP
             'pkg.mod'
             ```
 
@@ -183,7 +183,7 @@ class ModuleInfo:
             ```
             - The function is called with ``/path/to/root`` as root and ``/path/to/root/pkg/__init__.py`` as file path
             ```python
-            >>> ModuleInfo.convert_path_to_dot("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
+            >>> Module.convert_path_to_dot("/path/to/root", "/path/to/root/pkg/__init__.py")  # doctest: +SKIP
             'pkg'
             ```
         """
@@ -255,7 +255,7 @@ class ModuleInfo:
         }
 
     @classmethod
-    def from_file(cls, file_path: str, root: str) -> Optional["ModuleInfo"]:
+    def from_file(cls, file_path: str, root: str) -> Optional["Module"]:
         """Parse a Python source file and extract high-level structural information.
 
         This function uses Python's ``ast`` module to find classes, top-level functions,
@@ -266,7 +266,7 @@ class ModuleInfo:
             dotted_name (str): Dotted module name that will be associated with the file.
 
         Returns:
-            Optional[ModuleInfo]: A populated ModuleInfo on success, or ``None`` when the
+            Optional[Module]: A populated ModuleInfo on success, or ``None`` when the
             source cannot be parsed due to ``SyntaxError`` or ``UnicodeDecodeError``.
 
         Raises:
@@ -293,7 +293,7 @@ class ModuleInfo:
 
             ```
         """
-        dotted_name = ModuleInfo.convert_path_to_dot(root, file_path)
+        dotted_name = Module.convert_path_to_dot(root, file_path)
         # If dotted is empty (root __init__.py), use the directory name as module name
         if not dotted_name:
             base = Path(file_path).parent.name
@@ -318,12 +318,12 @@ class Package:
     Args:
         root_path (str): Absolute root directory that was crawled.
         roots (List[str]): Top-level package names discovered beneath the root.
-        modules (Dict[str, ModuleInfo]): Mapping from dotted module name to ModuleInfo.
+        modules (Dict[str, Module]): Mapping from dotted module name to ModuleInfo.
 
     Attributes:
         root_path (str): See Args.
         roots (List[str]): See Args.
-        modules (Dict[str, ModuleInfo]): See Args.
+        modules (Dict[str, Module]): See Args.
 
     Raises:
         TypeError: If instantiated with arguments of incompatible types.
@@ -346,7 +346,7 @@ class Package:
 
     root_path: str
     roots: List[str]  # top-level package names discovered
-    modules: Dict[str, ModuleInfo]  # dotted module name -> ModuleInfo
+    modules: Dict[str, Module]  # dotted module name -> Module
 
     def to_dict(self) -> Dict:
         """Convert the model to a plain serializable dictionary.
@@ -391,7 +391,7 @@ class Package:
         - Build edges for a minimal model
             ```python
 
-            >>> mod = ModuleInfo(name='pkg.m', path='X',
+            >>> mod = Module(name='pkg.m', path='X',
             ...                  classes=[ClassInfo(name='A', lineno=1, bases=['Base'], methods=[FunctionInfo('x', 2)])],
             ...                  functions=[FunctionInfo('f', 3)], imports=['math'])
             >>> pm = Package(root_path='/', roots=['pkg'], modules={'pkg.m': module})

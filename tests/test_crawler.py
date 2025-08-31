@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 
 
-from arch.data_models import ModuleInfo  # noqa: E402
+from arch.data_models import Module  # noqa: E402
 
 
 class TestModuleNameFromPath:
@@ -18,7 +18,7 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(str(parent), str(mod))
+            dotted = Module.convert_path_to_dot(str(parent), str(mod))
             assert dotted == "pkg.mod"
 
     def test_package_init_from_parent_root(self):
@@ -32,7 +32,7 @@ class TestModuleNameFromPath:
             init = pkg / "__init__.py"
             init.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(str(parent), str(init))
+            dotted = Module.convert_path_to_dot(str(parent), str(init))
             assert dotted == "pkg"
 
     def test_nested_module_from_parent_root(self):
@@ -49,7 +49,7 @@ class TestModuleNameFromPath:
             mod2 = sub / "mod2.py"
             mod2.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(str(parent), str(mod2))
+            dotted = Module.convert_path_to_dot(str(parent), str(mod2))
             assert dotted == "pkg.sub.mod2"
 
     def test_root_init_when_root_is_package_dir_returns_empty(self):
@@ -62,7 +62,7 @@ class TestModuleNameFromPath:
             init = pkg / "__init__.py"
             init.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(str(pkg), str(init))
+            dotted = Module.convert_path_to_dot(str(pkg), str(init))
             assert dotted == ""
 
     def test_module_when_root_is_package_dir_is_bare_name(self):
@@ -76,7 +76,7 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(str(pkg), str(mod))
+            dotted = Module.convert_path_to_dot(str(pkg), str(mod))
             assert dotted == "mod"
 
     def test_file_not_under_root_fallback_endswith_pkg_mod(self):
@@ -93,7 +93,7 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(str(root), str(mod))
+            dotted = Module.convert_path_to_dot(str(root), str(mod))
             assert dotted.endswith("pkg.mod"), f"unexpected dotted name: {dotted}"
 
 
@@ -111,5 +111,5 @@ class TestModuleNameFromPath:
             mod = pkg / "mod.py"
             mod.write_text("", encoding="utf-8")
 
-            dotted = ModuleInfo.convert_path_to_dot(root, str(mod))
+            dotted = Module.convert_path_to_dot(root, str(mod))
             assert dotted.endswith("pkg.mod"), f"unexpected dotted name: {dotted}"

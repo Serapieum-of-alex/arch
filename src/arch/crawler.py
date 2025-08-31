@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Dict, List, Iterable
-from arch.data_models import Package, ModuleInfo
+from arch.data_models import Package, Module
 
 # Public API surface of this module:
 # - crawl_package(path: str) -> Dict
@@ -221,11 +221,11 @@ def crawl_package(root_path: str) -> Package:
         build_edges: Generates the relationships included in the output.
     """
     abs_root = Path(root_path).absolute()
-    modules: Dict[str, ModuleInfo] = {}
+    modules: Dict[str, Module] = {}
 
     for file_path in _iter_python_files(abs_root):
 
-        mod = ModuleInfo.from_file(file_path, abs_root)
+        mod = Module.from_file(file_path, abs_root)
         if mod is None:
             continue
 
