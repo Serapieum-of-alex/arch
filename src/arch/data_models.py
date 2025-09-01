@@ -1,4 +1,5 @@
 import ast
+import re
 from typing import List, Dict, Optional, Any
 from pathlib import Path
 from collections import defaultdict
@@ -239,6 +240,21 @@ class Style:
     def class_def(self):
         return f"classDef {self.name} fill:{self.fill_color},stroke:{self.stroke_color},stroke-width:1px,color:{self.color};"
 
+    def apply_style(self, class_names: List[str]) -> List[str]:
+        lines = []
+        style_name = re.sub(r"[^A-Za-z0-9_]", "_", f"{self.name}_style")
+        # Define a pleasant, distinct style for module classes
+        # Apply style per-class using official classDiagram 'class' directive
+        for cname in class_names:
+            lines.append(f"class {cname}:::{style_name}")
+
+        lines.append(self.class_def)
+        # Attach a label to the first class to indicate module ownership
+        first_cls = class_names[0]
+        lines.append(f"note for {first_cls} \"module: {self.name}\"")
+
+        return lines
+
 
 @dataclass
 class Module:
@@ -471,19 +487,9 @@ class Module:
         # Apply module-specific styling to classes and label the module
         if style and self.classes:
             # Sanitize a style name from module name
-            import re
-            style_name = re.sub(r"[^A-Za-z0-9_]", "_", f"mod_{self.name}")
-            # Define a pleasant, distinct style for module classes
-
-            # Apply style per-class using official classDiagram 'class' directive
-            for cname in sorted([c.name for c in self.classes]):
-                lines.append(f"class {cname}:::{style_name}")
-
-            style.name = style_name
-            lines.append(style.class_def)
-            # Attach a label to the first class to indicate module ownership
-            first_cls = sorted(self.classes, key=lambda c: c.name)[0].name
-            lines.append(f"note for {first_cls} \"module: {self.name}\"")
+            class_names = sorted([c.name for c in self.classes])
+            style.name = self.name
+            lines.extend(style.apply_style(class_names))
 
         return "\n".join(lines)
 
