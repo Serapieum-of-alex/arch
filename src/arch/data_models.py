@@ -227,6 +227,18 @@ class Class:
 
         return "\n".join(lines)
 
+@dataclass
+class Style:
+    name: Optional[str] = None
+    fill_color: str = "#eef6ff"
+    stroke_color: str = "#2b6cb0"
+    stroke_width: str = "1px"
+    color: str = "#1a365d"
+
+    @property
+    def class_def(self):
+        return f"classDef {self.name} fill:{self.fill_color},stroke:{self.stroke_color},stroke-width:1px,color:{self.color};"
+
 
 @dataclass
 class Module:
@@ -389,7 +401,7 @@ class Module:
 
     def to_mermaid_class_diagram(
         self, include_relations: bool = True, class_detail_level: str = "all", function_detail_level: str = "all",
-        include_decorators=True
+        include_decorators=True, style: Style = Style()
     ) -> str:
         """Create a Mermaid class diagram string for this module.
 
@@ -407,6 +419,8 @@ class Module:
                 - "all": include all functions
                 - "public": only functions that do not start with an underscore
                 - "none": do not include any functions
+            include_decorators (bool): When rendering functions, whether to attach a note listing decorators.
+            include_module_styling (bool): If True, color and label all classes in this module to distinguish them from other modules.
 
         Returns:
             str: Mermaid class diagram describing all classes (and optionally functions) in this module.
@@ -453,6 +467,23 @@ class Module:
                 if parts and parts[0].strip().lower() == "classdiagram":
                     parts = parts[1:]
                 lines.extend(parts)
+
+        # Apply module-specific styling to classes and label the module
+        if style and self.classes:
+            # Sanitize a style name from module name
+            import re
+            style_name = re.sub(r"[^A-Za-z0-9_]", "_", f"mod_{self.name}")
+            # Define a pleasant, distinct style for module classes
+
+            # Apply style per-class using official classDiagram 'class' directive
+            for cname in sorted([c.name for c in self.classes]):
+                lines.append(f"class {cname}:::{style_name}")
+
+            style.name = style_name
+            lines.append(style.class_def)
+            # Attach a label to the first class to indicate module ownership
+            first_cls = sorted(self.classes, key=lambda c: c.name)[0].name
+            lines.append(f"note for {first_cls} \"module: {self.name}\"")
 
         return "\n".join(lines)
 
@@ -636,6 +667,7 @@ class Package:
         class_detail_level: str = "all",
         function_detail_level: str = "all",
         include_decorators: bool = True,
+        include_module_styling: bool = True,
     ) -> str:
         """Create a Mermaid class diagram for the entire package.
 
@@ -677,6 +709,7 @@ class Package:
                 class_detail_level=class_detail_level,
                 function_detail_level=function_detail_level,
                 include_decorators=include_decorators,
+                include_module_styling=include_module_styling,
             )
             parts = mod_diagram.splitlines()
             if parts and parts[0].strip().lower() == "classdiagram":
@@ -696,3 +729,6 @@ class Package:
 
 
         return "\n".join(lines)
+
+
+
