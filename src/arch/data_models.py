@@ -4,7 +4,7 @@ from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass, field
 from arch.utils import _extract_name
-from arch.mermaid import Style
+from arch.mermaid import Style, render_function_diagram, render_class_diagram, render_module_diagram, render_package_diagram, render_module_dependency
 
 
 def get_filtered_objects(items):
@@ -59,44 +59,8 @@ class Function:
             }
 
     def to_mermaid_class_diagram(self, detail_level: str = "all", include_decorators: bool = False) -> str:
-        """Create a Mermaid class diagram string for this function.
-
-        Args:
-            detail_level (str): Controls whether this function is rendered based on naming convention.
-                - "all": always render this function (default)
-                - "public": render only if the function name does not start with an underscore
-                - "none": do not render anything
-            include_decorators (bool): If True and the function is rendered, add a Mermaid note listing decorators.
-
-        Returns:
-            str: Mermaid class diagram representing this function node. If filtered out by
-            detail_level, returns a diagram header with no nodes.
-        """
-        allowed_levels = {"all", "public", "none"}
-        if detail_level not in allowed_levels:
-            raise ValueError(
-                f"Unsupported detail_level '{detail_level}'. Expected one of {sorted(allowed_levels)}"
-            )
-
-        lines: List[str] = ["classDiagram"]
-
-        # Apply filtering based on detail_level
-        if detail_level == "none":
-            return "\n".join(lines)
-        if detail_level == "public" and self.name.startswith("_"):
-            return "\n".join(lines)
-
-        # Render the function as a stereotyped class node
-        s = "{\n    }"
-        lines.append(f"    class {self.name} {s}")
-
-        # Optionally add decorators as a note
-        if include_decorators and self.decorators:
-            decos = ", ".join(f"@{d}" if not str(d).startswith("@") else str(d) for d in self.decorators)
-            # Mermaid classDiagram supports notes attached to a class
-            lines.append(f"note for {self.name} \"decorators: {decos}\"")
-
-        return "\n".join(lines)
+        """Create a Mermaid class diagram string for this function by delegating to arch.mermaid."""
+        return render_function_diagram(self, detail_level=detail_level, include_decorators=include_decorators)
 
 
 @dataclass
@@ -183,50 +147,8 @@ class Class:
         return edges
 
     def to_mermaid_class_diagram(self, include_relations: bool = True, detail_level: str = "all") -> str:
-        """Create a Mermaid class diagram string for this class.
-
-        Args:
-            include_relations (bool): If True, include inheritance relations to base classes.
-            detail_level (str): Controls which methods are included in the diagram. One of:
-                - "all": include all methods (default)
-                - "public": include only methods that do not start with an underscore
-                - "none": do not include any methods
-
-        Returns:
-            str: Mermaid class diagram describing this class.
-
-        Notes:
-            - Only method names are available; parameters and attributes are not tracked by the model.
-            - Methods are rendered as public (+) with empty parameter lists for simplicity.
-        """
-        # Validate detail_level
-        allowed_levels = {"all", "public", "none"}
-        if detail_level not in allowed_levels:
-            raise ValueError(f"Unsupported detail_level '{detail_level}'. Expected one of {sorted(allowed_levels)}")
-
-        lines: List[str] = ["classDiagram"]
-
-        # Class declaration with methods
-        lines.append(f"class {self.name} {{")
-        # Determine which methods to include
-        if detail_level == "all":
-            selected_methods = self.methods
-        elif detail_level == "public":
-            selected_methods = [m for m in self.methods if not m.name.startswith("_")]
-        else:  # "none"
-            selected_methods = []
-
-        for m in sorted(selected_methods, key=lambda mm: mm.name):
-            lines.append(f"  +{m.name}()")
-        lines.append("}")
-
-        # Inheritance relations
-        if include_relations:
-            for base in sorted(self.bases):
-                # Mermaid: Base <|-- Derived
-                lines.append(f"{base} <|-- {self.name}")
-
-        return "\n".join(lines)
+        """Create a Mermaid class diagram string for this class by delegating to arch.mermaid."""
+        return render_class_diagram(self, include_relations=include_relations, detail_level=detail_level)
 
 
 @dataclass
@@ -392,90 +314,19 @@ class Module:
         self, include_relations: bool = True, class_detail_level: str = "all", function_detail_level: str = "all",
         include_decorators=True, style: Style = Style()
     ) -> str:
-        """Create a Mermaid class diagram string for this module.
-
-        This renders all classes found in the module (and optionally inheritance
-        relations) and optionally includes top-level functions as stereotyped
-        function nodes.
-
-        Args:
-            include_relations (bool): If True, include inheritance relations among classes.
-            class_detail_level (str): Which class methods to include. One of:
-                - "all": include all methods
-                - "public": only methods that do not start with an underscore
-                - "none": do not include any methods
-            function_detail_level (str): Which top-level functions to include. One of:
-                - "all": include all functions
-                - "public": only functions that do not start with an underscore
-                - "none": do not include any functions
-            include_decorators (bool): When rendering functions, whether to attach a note listing decorators.
-            include_module_styling (bool): If True, color and label all classes in this module to distinguish them from other modules.
-
-        Returns:
-            str: Mermaid class diagram describing all classes (and optionally functions) in this module.
-        """
-        allowed_levels = {"all", "public", "none"}
-        if class_detail_level not in allowed_levels:
-            raise ValueError(
-                f"Unsupported class_detail_level '{class_detail_level}'. Expected one of {sorted(allowed_levels)}"
-            )
-        if function_detail_level not in allowed_levels:
-            raise ValueError(
-                f"Unsupported function_detail_level '{function_detail_level}'. Expected one of {sorted(allowed_levels)}"
-            )
-
-        lines: List[str] = ["classDiagram"]
-
-        # Render classes
-        for cls in sorted(self.classes, key=lambda c: c.name):
-            # Reuse Class.to_mermaid_class_diagram and drop the header line
-            cls_diagram = cls.to_mermaid_class_diagram(
-                include_relations=False, detail_level=class_detail_level
-            )
-            parts = cls_diagram.splitlines()
-            if parts and parts[0].strip().lower() == "classdiagram":
-                parts = parts[1:]
-            lines.extend(parts)
-
-        # Render inheritance relations once (to avoid duplicates across class blocks)
-        if include_relations:
-            for cls in sorted(self.classes, key=lambda c: c.name):
-                for base in sorted(cls.bases):
-                    lines.append(f"{base} <|-- {cls.name}")
-
-        # Render top-level functions via Function.to_mermaid_class_diagram
-        if function_detail_level != "none":
-            if function_detail_level == "all":
-                funcs = self.functions
-            else:  # "public"
-                funcs = [f for f in self.functions if not f.name.startswith("_")]
-
-            for f in sorted(funcs, key=lambda ff: ff.name):
-                func_diagram = f.to_mermaid_class_diagram(detail_level=function_detail_level, include_decorators=include_decorators)
-                parts = func_diagram.splitlines()
-                if parts and parts[0].strip().lower() == "classdiagram":
-                    parts = parts[1:]
-                lines.extend(parts)
-
-        # Apply module-specific styling to classes and label the module
-        if style and self.classes:
-            # Sanitize a style name from module name
-            class_names = sorted([c.name for c in self.classes])
-            style.name = self.name
-            lines.extend(style.apply_style(class_names))
-
-        return "\n".join(lines)
+        """Create a Mermaid class diagram string for this module by delegating to arch.mermaid."""
+        return render_module_diagram(
+            self,
+            include_relations=include_relations,
+            class_detail_level=class_detail_level,
+            function_detail_level=function_detail_level,
+            include_decorators=include_decorators,
+            style=style,
+        )
 
     def dependency(self):
-        lines: List[str] = ["classDiagram"]
-        added_imports = set()
-        for imp in self.imports:
-            edge = (self.name, imp)
-            if edge not in added_imports:
-                lines.append(f"{self.name} ..> {imp} : imports")
-                added_imports.add(edge)
-
-        return "\n".join(lines)
+        """Create a Mermaid module dependency diagram by delegating to arch.mermaid."""
+        return render_module_dependency(self)
 
     @classmethod
     def from_file(cls, file_path: str, root: str) -> Optional["Module"]:
@@ -648,66 +499,15 @@ class Package:
         include_decorators: bool = True,
         include_module_styling: bool = True,
     ) -> str:
-        """Create a Mermaid class diagram for the entire package.
-
-        This combines all classes (and optionally functions) from every module into
-        a single Mermaid "classDiagram". It can also include inheritance relations
-        across all classes and add module import relations.
-
-        Args:
-            include_class_relations (bool): If True, include inheritance relations among
-                all classes across modules.
-            class_detail_level (str): Which class methods to include. One of:
-                - "all": include all methods
-                - "public": only methods that do not start with an underscore
-                - "none": do not include any methods
-            function_detail_level (str): Which top-level functions to include. One of:
-                - "all": include all functions
-                - "public": only functions that do not start with an underscore
-                - "none": do not include any functions
-
-        Returns:
-            str: Mermaid class diagram describing the whole package.
-        """
-        allowed_levels = {"all", "public", "none"}
-        if class_detail_level not in allowed_levels:
-            raise ValueError(
-                f"Unsupported class_detail_level '{class_detail_level}'. Expected one of {sorted(allowed_levels)}"
-            )
-        if function_detail_level not in allowed_levels:
-            raise ValueError(
-                f"Unsupported function_detail_level '{function_detail_level}'. Expected one of {sorted(allowed_levels)}"
-            )
-
-        lines: List[str] = ["classDiagram"]
-
-        # Render each module's classes and functions, stripping individual headers
-        for _, module in sorted(self.modules.items(), key=lambda kv: kv[0]):
-            mod_diagram = module.to_mermaid_class_diagram(
-                include_relations=False,
-                class_detail_level=class_detail_level,
-                function_detail_level=function_detail_level,
-                include_decorators=include_decorators,
-                include_module_styling=include_module_styling,
-            )
-            parts = mod_diagram.splitlines()
-            if parts and parts[0].strip().lower() == "classdiagram":
-                parts = parts[1:]
-            lines.extend(parts)
-
-        # Aggregate inheritance relations across all classes
-        if include_class_relations:
-            added_rel = set()
-            for _, module in sorted(self.modules.items(), key=lambda kv: kv[0]):
-                for cls in module.classes:
-                    for base in cls.bases:
-                        rel = (base, cls.name)
-                        if rel not in added_rel:
-                            lines.append(f"{base} <|-- {cls.name}")
-                            added_rel.add(rel)
-
-
-        return "\n".join(lines)
+        """Create a Mermaid class diagram for the entire package by delegating to arch.mermaid."""
+        return render_package_diagram(
+            self,
+            include_class_relations=include_class_relations,
+            class_detail_level=class_detail_level,
+            function_detail_level=function_detail_level,
+            include_decorators=include_decorators,
+            include_module_styling=include_module_styling,
+        )
 
 
 
