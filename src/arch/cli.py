@@ -1,5 +1,6 @@
 from typing import List, Optional
-from arch.crawler import crawl_package, render_tree, to_json
+from arch.crawler import crawl_package, to_json
+from arch.viewer import render_tree
 
 
 def main(argv: Optional[List[str]] = None) -> int:
